@@ -250,9 +250,9 @@ class DashboardGenerator:
         <section class="lg:col-span-1 flex flex-col gap-6">
             
             <!-- Sentiment Score Card -->
-            <div class="glass-card p-6 rounded-2xl relative overflow-hidden" id="score-card">
+            <div class="glass-card p-6 rounded-2xl flex flex-col items-center text-center relative overflow-hidden" id="score-card">
                 <div class="absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl" id="bg-glow"></div>
-                <div class="relative z-10">
+                <div class="relative z-10 w-full flex flex-col items-center">
                     <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center gap-2">
                         <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
                     </h3>
