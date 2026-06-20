@@ -67,7 +67,8 @@ def resolve_run_date(args):
     elif args.yesterday:
         run_date = (now_sh - timedelta(days=1)).date()
     else:
-        run_date = now_sh.date()
+        # 默认跑昨天（帖子数据更完整）
+        run_date = (now_sh - timedelta(days=1)).date()
     reference_time = datetime.combine(run_date, time(23, 59, 59), tzinfo=SHANGHAI_TZ)
     return run_date, reference_time.replace(tzinfo=None)
 

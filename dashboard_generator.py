@@ -274,6 +274,34 @@ class DashboardGenerator:
                     <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
                     <span class="text-sm block" id="rec-details">Loading details...</span>
                 </div>
+
+                <!-- 情绪分类占比 (merged into gauge card) -->
+                <div class="w-full mt-5 pt-5 border-t border-gray-800">
+                    <h4 class="text-gray-500 text-xs font-semibold tracking-wider uppercase mb-3 text-center">情绪分类占比</h4>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="bg-bullish p-3 rounded-xl text-center">
+                            <span class="text-xs text-emerald-400 font-semibold block mb-1">看多帖</span>
+                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["bullish_posts"]}</span>
+                        </div>
+                        <div class="bg-bearish p-3 rounded-xl text-center">
+                            <span class="text-xs text-red-400 font-semibold block mb-1">看空帖</span>
+                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["bearish_posts"]}</span>
+                        </div>
+                        <div class="bg-gray-800/40 border border-gray-700/30 p-3 rounded-xl text-center">
+                            <span class="text-xs text-gray-400 font-semibold block mb-1">噪音/中性</span>
+                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["neutral_posts"]}</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400 mb-1.5 px-1 font-semibold">
+                        <span>多头 ({(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
+                        <span>空头 ({(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
+                    </div>
+                    <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden flex">
+                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full" style="width: {(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
+                        <div class="bg-gray-600 h-full" style="width: {(data["summary"]["neutral_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
+                        <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full" style="width: {(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Market Risk Score Card (TuShare 多维数据) -->
@@ -299,6 +327,12 @@ class DashboardGenerator:
                     </span>
                 </div>
                 <p class="text-xs text-gray-400 text-center leading-relaxed">{risk["advice"]}</p>
+                <!-- 资金集中度突出显示 -->
+                <div class="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                    <span class="text-xs text-amber-400 font-semibold">📊 前5%个股成交占比</span>
+                    <span class="text-2xl font-extrabold font-mono text-amber-300 block mt-1">{risk["dimensions"]["concentration"]["value"]}%</span>
+                    <span class="text-xs text-amber-400/60 mt-0.5 block">前5%成交占全市场比重</span>
+                </div>
                 <div class="mt-4 space-y-2">
                     ''' + "".join(
                         f'''                    <div>
@@ -319,41 +353,6 @@ class DashboardGenerator:
                 <span class="text-gray-500 text-sm">大盘风险值暂未计算 (需 TuShare API)</span>
             </div>
             '''}
-
-            <!-- Stats Grid -->
-            <div class="glass-card p-6 rounded-2xl">
-                <h3 class="text-gray-400 text-sm font-semibold tracking-wider uppercase mb-5 flex items-center gap-2">
-                    <i class="fa-solid fa-magnifying-glass-chart text-indigo-400"></i> 情绪分类占比
-                </h3>
-                
-                <div class="grid grid-cols-3 gap-3 mb-5">
-                    <div class="bg-bullish p-3.5 rounded-xl text-center">
-                        <span class="text-xs text-emerald-400 font-semibold block mb-1">看多帖</span>
-                        <span class="text-2xl font-bold text-white font-mono">{data["summary"]["bullish_posts"]}</span>
-                    </div>
-                    <div class="bg-bearish p-3.5 rounded-xl text-center">
-                        <span class="text-xs text-red-400 font-semibold block mb-1">看空帖</span>
-                        <span class="text-2xl font-bold text-white font-mono">{data["summary"]["bearish_posts"]}</span>
-                    </div>
-                    <div class="bg-gray-800/40 border border-gray-700/30 p-3.5 rounded-xl text-center">
-                        <span class="text-xs text-gray-400 font-semibold block mb-1">噪音/中性</span>
-                        <span class="text-2xl font-bold text-white font-mono">{data["summary"]["neutral_posts"]}</span>
-                    </div>
-                </div>
-
-                <!-- Simple Progress Bar -->
-                <div>
-                    <div class="flex justify-between text-xs text-gray-400 mb-1.5 px-1 font-semibold">
-                        <span>多头情绪 ({(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
-                        <span>空头情绪 ({(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
-                    </div>
-                    <div class="h-3 w-full bg-gray-800 rounded-full overflow-hidden flex">
-                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full" style="width: {(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
-                        <div class="bg-gray-600 h-full" style="width: {(data["summary"]["neutral_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
-                        <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full" style="width: {(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Zhihu Strategy Guidelines Guide -->
             <div class="glass-card p-6 rounded-2xl text-sm border-l-4 border-indigo-500">
@@ -381,22 +380,12 @@ class DashboardGenerator:
         <!-- Column 2: Charts & Keyword Analysis -->
         <section class="lg:col-span-2 flex flex-col gap-6">
             
-            <!-- Trend Chart Card -->
+            <!-- Trend Chart Card (日线) -->
             <div class="glass-card p-6 rounded-2xl">
-                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <h3 class="text-white text-base font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪指数演变趋势
-                    </h3>
-                    <div class="flex bg-gray-800/80 p-0.5 rounded-lg border border-gray-700/50">
-                        <button onclick="toggleChart('hourly')" id="btn-hourly" class="px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
-                            分时走势
-                        </button>
-                        <button onclick="toggleChart('daily')" id="btn-daily" class="px-3.5 py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow">
-                            日线走势
-                        </button>
-                    </div>
-                </div>
-                <p id="trend-chart-hint" class="text-xs text-gray-500 mb-3">默认展示近14个交易日情绪分；Y轴按数据自动缩放以便观察波动。分时仅显示扫描当日各小时。</p>
+                <h3 class="text-white text-base font-bold mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪指数日线趋势
+                </h3>
+                <p class="text-xs text-gray-500 mb-4">展示全部历史交易日情绪分；Y轴按数据自动缩放以便观察波动。</p>
                 
                 <div class="h-[260px] relative w-full">
                     <canvas id="trend-chart"></canvas>
@@ -619,8 +608,7 @@ class DashboardGenerator:
             }}
         }}
 
-        // Setup Charts (default: daily — more stable reference)
-        let currentChartMode = 'daily';
+        // Setup Charts — daily only
         let trendChartObj = null;
 
         function calcYAxisRange(scores) {{
@@ -660,7 +648,7 @@ class DashboardGenerator:
         function renderTrendChart() {{
             const canvas = document.getElementById('trend-chart');
             const emptyEl = document.getElementById('trend-chart-empty');
-            const dataSet = chartData[currentChartMode];
+            const dataSet = chartData.daily;
             const scores = dataSet.scores || [];
             const labels = dataSet.labels || [];
 
@@ -743,30 +731,12 @@ class DashboardGenerator:
                                 maxRotation: 45,
                                 font: {{ size: 9 }},
                                 autoSkip: true,
-                                maxTicksLimit: currentChartMode === 'daily' ? 14 : 24
+                                maxTicksLimit: 14
                             }}
                         }}
                     }}
                 }}
             }});
-        }}
-
-        function toggleChart(mode) {{
-            if (currentChartMode === mode) return;
-            currentChartMode = mode;
-            
-            const btnHourly = document.getElementById('btn-hourly');
-            const btnDaily = document.getElementById('btn-daily');
-            
-            if (mode === 'hourly') {{
-                btnHourly.className = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow";
-                btnDaily.className = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white";
-            }} else {{
-                btnDaily.className = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow";
-                btnHourly.className = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white";
-            }}
-            
-            renderTrendChart();
         }}
 
         function renderWordCharts() {{
