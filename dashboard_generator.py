@@ -249,57 +249,69 @@ class DashboardGenerator:
         <!-- Column 1: Sentiment Score & Investment Action -->
         <section class="lg:col-span-1 flex flex-col gap-6">
             
-            <!-- Gauge Card -->
-            <div class="glass-card p-6 rounded-2xl flex flex-col items-center relative overflow-hidden bullish-glow" id="score-card">
+            <!-- Sentiment Score Card -->
+            <div class="glass-card p-6 rounded-2xl relative overflow-hidden" id="score-card">
                 <div class="absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl" id="bg-glow"></div>
-                
-                <h3 class="text-gray-400 text-sm font-semibold tracking-wider uppercase mb-6 flex items-center gap-2">
-                    <i class="fa-solid fa-gauge-high text-teal-500"></i> 当前加权情绪指数
-                </h3>
-                
-                <!-- Gauge Widget -->
-                <div class="gauge-container mb-6">
-                    <div class="gauge-body"></div>
-                    <div class="gauge-cover">
-                        <span class="text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">
-                            {data["summary"]["overall_weighted_score"]}
-                        </span>
-                        <span class="text-xs text-gray-400 mt-1 uppercase font-mono">Range: [-1.0, 1.0]</span>
-                    </div>
-                </div>
-                
-                <!-- Recommendation Zone -->
-                <div class="w-full text-center py-4 px-5 rounded-xl transition-all duration-500" id="recommendation-box">
-                    <span class="text-xs uppercase tracking-widest text-gray-400 block mb-1">反向情绪操作参考</span>
-                    <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
-                    <span class="text-sm block" id="rec-details">Loading details...</span>
-                </div>
-
-                <!-- 情绪分类占比 (merged into gauge card) -->
-                <div class="w-full mt-5 pt-5 border-t border-gray-800">
-                    <h4 class="text-gray-500 text-xs font-semibold tracking-wider uppercase mb-3 text-center">情绪分类占比</h4>
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div class="bg-bullish p-3 rounded-xl text-center">
-                            <span class="text-xs text-emerald-400 font-semibold block mb-1">看多帖</span>
-                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["bullish_posts"]}</span>
-                        </div>
-                        <div class="bg-bearish p-3 rounded-xl text-center">
-                            <span class="text-xs text-red-400 font-semibold block mb-1">看空帖</span>
-                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["bearish_posts"]}</span>
-                        </div>
-                        <div class="bg-gray-800/40 border border-gray-700/30 p-3 rounded-xl text-center">
-                            <span class="text-xs text-gray-400 font-semibold block mb-1">噪音/中性</span>
-                            <span class="text-xl font-bold text-white font-mono">{data["summary"]["neutral_posts"]}</span>
+                <div class="relative z-10">
+                    <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
+                    </h3>
+                    <div class="gauge-container mb-5">
+                        <div class="gauge-body"></div>
+                        <div class="gauge-cover">
+                            <span class="text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">{data["summary"]["overall_weighted_score"]}</span>
+                            <span class="text-xs text-gray-500 mt-1 font-mono">[-1.0, 1.0]</span>
                         </div>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-400 mb-1.5 px-1 font-semibold">
-                        <span>多头 ({(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
-                        <span>空头 ({(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.1f}%)</span>
+                    <div class="text-center py-3.5 px-4 rounded-xl transition-all duration-500 mb-5" id="recommendation-box">
+                        <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
+                        <span class="text-xs leading-relaxed block" id="rec-details">Loading details...</span>
                     </div>
-                    <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden flex">
-                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full" style="width: {(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
-                        <div class="bg-gray-600 h-full" style="width: {(data["summary"]["neutral_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
-                        <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full" style="width: {(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.2f}%"></div>
+                    <div class="border-t border-gray-800/60 pt-4 mb-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">帖子分类占比</h4>
+                            <span class="text-gray-600 text-xs font-mono">{data["summary"]["total_posts"]} 篇</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2.5 mb-3">
+                            <div class="bg-emerald-500/8 border border-emerald-500/15 rounded-lg p-2.5 text-center">
+                                <span class="text-2xl font-extrabold text-emerald-400 font-mono">{data["summary"]["bullish_posts"]}</span>
+                                <span class="text-xs text-emerald-400/60 block mt-0.5">看多</span>
+                            </div>
+                            <div class="bg-gray-800/20 border border-gray-700/20 rounded-lg p-2.5 text-center">
+                                <span class="text-2xl font-extrabold text-gray-300 font-mono">{data["summary"]["neutral_posts"]}</span>
+                                <span class="text-xs text-gray-500 block mt-0.5">中性</span>
+                            </div>
+                            <div class="bg-red-500/8 border border-red-500/15 rounded-lg p-2.5 text-center">
+                                <span class="text-2xl font-extrabold text-red-400 font-mono">{data["summary"]["bearish_posts"]}</span>
+                                <span class="text-xs text-red-400/60 block mt-0.5">看空</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mb-1.5 px-1">
+                            <span>看多 ({(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.0f}%)</span>
+                            <span>看空 ({(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.0f}%)</span>
+                        </div>
+                        <div class="h-2 w-full bg-gray-800/60 rounded-full overflow-hidden flex">
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-l-full" style="width: {(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
+                            <div class="bg-gray-700/50 h-full" style="width: {(data["summary"]["neutral_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
+                            <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: {(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-800/60 pt-4 text-xs">
+                        <h4 class="text-gray-500 font-semibold uppercase tracking-wider mb-3">模型说明</h4>
+                        <div class="space-y-2.5">
+                            <div class="flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
+                                <span class="text-emerald-400 font-bold mt-0.5 flex-shrink-0">&lt; -0.3</span>
+                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">极度恐慌 / 黄金买点</span><br>逆向建仓 +10%~+20%</span>
+                            </div>
+                            <div class="flex items-start gap-2 bg-gray-800/20 border border-gray-700/20 rounded-lg px-3 py-2">
+                                <span class="text-gray-400 font-bold mt-0.5 flex-shrink-0">-0.3 ~ 0.5</span>
+                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">情绪中性 / 卧倒装死</span><br>维持底仓，持股不动</span>
+                            </div>
+                            <div class="flex items-start gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
+                                <span class="text-red-400 font-bold mt-0.5 flex-shrink-0">&gt; +0.5</span>
+                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">极度亢奋 / 防御警报</span><br>防守减仓 -10%~-20%</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -326,14 +338,15 @@ class DashboardGenerator:
                         {risk["level"]}
                     </span>
                 </div>
-                <p class="text-xs text-gray-400 text-center leading-relaxed">{risk["advice"]}</p>
-                <!-- 资金集中度突出显示 -->
-                <div class="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-                    <span class="text-xs text-amber-400 font-semibold">📊 前5%个股成交占比</span>
-                    <span class="text-2xl font-extrabold font-mono text-amber-300 block mt-1">{risk["dimensions"]["concentration"]["value"]}%</span>
-                    <span class="text-xs text-amber-400/60 mt-0.5 block">前5%成交占全市场比重</span>
+                <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
+                <!-- 资金集中度 → 大号突出 -->
+                <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
+                    <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
+                    <div class="text-4xl font-extrabold font-mono text-amber-300 mt-1">{risk["dimensions"]["concentration"]["value"]}<span class="text-lg text-amber-400/60">%</span></div>
+                    <span class="text-[10px] text-amber-400/40 mt-0.5 block">历史极值 52.1% · 当前 {risk["dimensions"]["concentration"]["score"]} 分</span>
                 </div>
-                <div class="mt-4 space-y-2">
+                <!-- 其他维度 -->
+                <div class="mt-3 space-y-1.5">
                     ''' + "".join(
                         f'''                    <div>
                         <div class="flex justify-between text-xs text-gray-400 mb-0.5">
@@ -354,27 +367,6 @@ class DashboardGenerator:
             </div>
             '''}
 
-            <!-- Zhihu Strategy Guidelines Guide -->
-            <div class="glass-card p-6 rounded-2xl text-sm border-l-4 border-indigo-500">
-                <h3 class="font-bold text-white mb-2.5 flex items-center gap-2">
-                    <i class="fa-solid fa-circle-info text-indigo-400"></i> 情绪分模型说明 (知乎作者规则)
-                </h3>
-                <ul class="space-y-2 text-gray-300">
-                    <li class="flex items-start gap-2">
-                        <span class="text-emerald-400 font-bold mt-0.5">•</span>
-                        <span><strong>极端恐慌 (&lt; -0.3):</strong> 代表散户极度悲观，属于<strong>左侧建仓机会</strong>，应逆向加仓 +10% ~ +20%。</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-gray-400 font-bold mt-0.5">•</span>
-                        <span><strong>震荡区间 (-0.3 ~ 0.5):</strong> 市场正常情绪起伏，多为噪音，建议<strong>卧倒装死</strong>，持有底仓。</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-red-400 font-bold mt-0.5">•</span>
-                        <span><strong>极端贪婪 (&gt; 0.5):</strong> 代表市场极度亢奋，随时可能见顶，应<strong>防守减仓</strong>提现 -10% ~ -20%。</span>
-                    </li>
-                </ul>
-            </div>
-            
         </section>
 
         <!-- Column 2: Charts & Keyword Analysis -->
@@ -382,14 +374,17 @@ class DashboardGenerator:
             
             <!-- Trend Chart Card (日线) -->
             <div class="glass-card p-6 rounded-2xl">
-                <h3 class="text-white text-base font-bold mb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪指数日线趋势
-                </h3>
-                <p class="text-xs text-gray-500 mb-4">展示全部历史交易日情绪分；Y轴按数据自动缩放以便观察波动。</p>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-white text-base font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪日线趋势
+                    </h3>
+                    <span class="text-[10px] text-gray-600 font-mono">历史日线</span>
+                </div>
+                <p class="text-xs text-gray-600 mb-4">按交易日累计，Y轴自适应缩放。</p>
                 
-                <div class="h-[260px] relative w-full">
+                <div class="h-[280px] relative w-full">
                     <canvas id="trend-chart"></canvas>
-                    <p id="trend-chart-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-500">暂无趋势数据，请先运行扫描脚本。</p>
+                    <p id="trend-chart-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-500">暂无趋势数据</p>
                 </div>
             </div>
 
