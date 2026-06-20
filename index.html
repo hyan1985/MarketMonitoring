@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>大A情绪分参考 Dashboard</title>
     <!-- Tailwind CSS for layout utilities -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -64,11 +64,12 @@
             background-color: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
-        /* Dial Gauge Styling */
+        /* Dial Gauge Styling — scales with screen width */
         .gauge-container {
+            --gauge-w: min(260px, calc(100vw - 3rem));
             position: relative;
-            width: 260px;
-            height: 130px;
+            width: var(--gauge-w);
+            height: calc(var(--gauge-w) * 0.5);
             overflow: hidden;
         }
         .gauge-body {
@@ -83,15 +84,15 @@
                 #6b7280 35% 65%, 
                 #10b981 65% 100%
             );
-            mask: radial-gradient(circle 98px at 50% 50%, transparent 100%, #000 100%);
-            -webkit-mask: radial-gradient(circle 98px at 50% 50%, transparent 100%, #000 100%);
+            mask: radial-gradient(circle calc(var(--gauge-w) * 0.377) at 50% 50%, transparent 100%, #000 100%);
+            -webkit-mask: radial-gradient(circle calc(var(--gauge-w) * 0.377) at 50% 50%, transparent 100%, #000 100%);
         }
         .gauge-cover {
             position: absolute;
-            top: 15px;
-            left: 15px;
-            width: 230px;
-            height: 230px;
+            top: calc(var(--gauge-w) * 0.058);
+            left: calc(var(--gauge-w) * 0.058);
+            width: calc(var(--gauge-w) * 0.885);
+            height: calc(var(--gauge-w) * 0.885);
             border-radius: 50%;
             background: #0d1220;
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -99,7 +100,24 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding-top: 50px;
+            padding-top: calc(var(--gauge-w) * 0.192);
+        }
+        /* Mobile polish */
+        @media (max-width: 639px) {
+            .mobile-card { padding: 1rem !important; }
+            .chart-scroll-hint::after {
+                content: '← 左右滑动查看更多 →';
+                display: block;
+                text-align: center;
+                font-size: 10px;
+                color: #6b7280;
+                padding: 6px 0 2px;
+            }
+        }
+        @supports (padding: env(safe-area-inset-bottom)) {
+            body {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -118,26 +136,27 @@
         }
     </style>
 </head>
-<body class="min-h-screen px-4 md:px-8 py-6">
+<body class="min-h-screen overflow-x-hidden px-3 sm:px-4 md:px-8 py-4 sm:py-6">
 
     <!-- Header -->
-    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-teal-500/10">
-                    <i class="fa-solid fa-chart-line-up text-white text-xl"></i>
+    <header class="max-w-7xl mx-auto mb-6 sm:mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="min-w-0">
+            <div class="flex items-center gap-2.5 sm:gap-3">
+                <div class="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-teal-500/10">
+                    <i class="fa-solid fa-chart-line-up text-white text-lg sm:text-xl"></i>
                 </div>
-                <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-teal-400 via-indigo-200 to-rose-400 bg-clip-text text-transparent">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-teal-400 via-indigo-200 to-rose-400 bg-clip-text text-transparent leading-tight">
                     大A情绪分参考 Dashboard
                 </h1>
             </div>
-            <p class="text-gray-400 text-sm mt-1 ml-13 flex items-center gap-2">
-                <span>多源聚合：东财股吧 + 雪球 + 同花顺（上证指数）</span>
-                <span class="text-gray-500">| 统计日 2026-06-19</span>
+            <p class="text-gray-400 text-xs sm:text-sm mt-2 sm:mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <span>多源聚合：东财股吧 + 雪球 + 同花顺</span>
+                <span class="hidden sm:inline text-gray-500">|</span>
+                <span class="text-gray-500">统计日 2026-06-19</span>
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
             </p>
         </div>
-        <div class="glass-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300">
+        <div class="glass-card mobile-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300 w-full md:w-auto shrink-0">
             <div>
                 <span class="text-gray-400 text-xs block">数据更新时间</span>
                 <span class="font-mono text-teal-400 font-semibold">2026-06-20 10:36:08</span>
@@ -150,28 +169,27 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:items-stretch">
 
-        <!-- Column 1: Sentiment Score & Investment Action -->
-        <section class="lg:col-span-1 flex flex-col gap-6">
-            
-            <!-- Sentiment Score Card -->
-            <div class="glass-card p-6 rounded-2xl flex flex-col items-center text-center relative overflow-hidden" id="score-card">
+        <!-- Sentiment Score Card — 左侧跨两行，与右侧趋势图+词频图底对齐 -->
+            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl relative overflow-hidden lg:col-span-1 lg:row-span-2 lg:h-full" id="score-card">
                 <div class="absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl" id="bg-glow"></div>
-                <div class="relative z-10 w-full flex flex-col items-center">
-                    <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center gap-2">
-                        <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
-                    </h3>
-                    <div class="gauge-container mx-auto mb-5">
-                        <div class="gauge-body"></div>
-                        <div class="gauge-cover">
-                            <span class="text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">0.0782</span>
-                            <span class="text-xs text-gray-500 mt-1 font-mono">[-1.0, 1.0]</span>
+                <div class="relative z-10 w-full">
+                    <div class="flex flex-col items-center text-center">
+                        <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center justify-center gap-2 w-full">
+                            <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
+                        </h3>
+                        <div class="gauge-container mb-5">
+                            <div class="gauge-body"></div>
+                            <div class="gauge-cover">
+                                <span class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">0.0782</span>
+                                <span class="text-xs text-gray-500 mt-1 font-mono">[-1.0, 1.0]</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="text-center py-3.5 px-4 rounded-xl transition-all duration-500 mb-5" id="recommendation-box">
-                        <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
-                        <span class="text-xs leading-relaxed block" id="rec-details">Loading details...</span>
+                        <div class="text-center py-3.5 px-4 rounded-xl transition-all duration-500 mb-5 w-full" id="recommendation-box">
+                            <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
+                            <span class="text-xs leading-relaxed block" id="rec-details">Loading details...</span>
+                        </div>
                     </div>
                     <div class="border-t border-gray-800/60 pt-4 mb-4">
                         <div class="flex justify-between items-center mb-3">
@@ -222,13 +240,51 @@
                 </div>
             </div>
 
+        <!-- Trend Chart Card (日线) -->
+            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-2">
+                <div class="flex items-center justify-between mb-2 gap-2">
+                    <h3 class="text-white text-sm sm:text-base font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪日线趋势
+                    </h3>
+                    <span class="text-[10px] text-gray-600 font-mono shrink-0">历史日线</span>
+                </div>
+                <p class="text-xs text-gray-600 mb-3 sm:mb-4">按交易日累计，Y轴自适应缩放。</p>
+                
+                <div class="h-[200px] sm:h-[280px] relative w-full">
+                    <canvas id="trend-chart"></canvas>
+                    <p id="trend-chart-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-500">暂无趋势数据</p>
+                </div>
+            </div>
+
+        <!-- Words Analysis Grid -->
+            <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <!-- Bullish Words Chart -->
+                <div class="glass-card mobile-card p-4 sm:p-5 rounded-2xl h-full flex flex-col">
+                    <h3 class="text-emerald-400 text-xs sm:text-sm font-bold tracking-wider uppercase mb-3 sm:mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-up"></i> 活跃多头词频
+                    </h3>
+                    <div class="h-[150px] sm:h-[180px] w-full flex-1">
+                        <canvas id="bullish-words-chart"></canvas>
+                    </div>
+                </div>
+                <!-- Bearish Words Chart -->
+                <div class="glass-card mobile-card p-4 sm:p-5 rounded-2xl h-full flex flex-col">
+                    <h3 class="text-red-400 text-xs sm:text-sm font-bold tracking-wider uppercase mb-3 sm:mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-down"></i> 活跃空头词频
+                    </h3>
+                    <div class="h-[150px] sm:h-[180px] w-full flex-1">
+                        <canvas id="bearish-words-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <!-- Market Risk Score Card (TuShare 多维数据) -->
-                        <div class="glass-card p-6 rounded-2xl" id="risk-card">
-                <h3 class="text-gray-400 text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2">
+                        <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-1 lg:h-full" id="risk-card">
+                <h3 class="text-gray-400 text-xs sm:text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 大盘风险值预估
                 </h3>
                 <div class="text-center mb-4">
-                    <span class="text-5xl font-extrabold font-outfit text-white" id="risk-total">61.1</span>
+                    <span class="text-4xl sm:text-5xl font-extrabold font-outfit text-white" id="risk-total">61.1</span>
                     <span class="text-gray-500 text-sm ml-1">/ 100</span>
                 </div>
                 <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
@@ -312,78 +368,33 @@
             </div>
             
 
-        </section>
-
-        <!-- Column 2: Charts & Keyword Analysis -->
-        <section class="lg:col-span-2 flex flex-col gap-6">
-            
-            <!-- Trend Chart Card (日线) -->
-            <div class="glass-card p-6 rounded-2xl">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-white text-base font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪日线趋势
-                    </h3>
-                    <span class="text-[10px] text-gray-600 font-mono">历史日线</span>
-                </div>
-                <p class="text-xs text-gray-600 mb-4">按交易日累计，Y轴自适应缩放。</p>
-                
-                <div class="h-[280px] relative w-full">
-                    <canvas id="trend-chart"></canvas>
-                    <p id="trend-chart-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-500">暂无趋势数据</p>
-                </div>
-            </div>
-
-            <!-- Words Analysis Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Bullish Words Chart -->
-                <div class="glass-card p-5 rounded-2xl">
-                    <h3 class="text-emerald-400 text-sm font-bold tracking-wider uppercase mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-trend-up"></i> 活跃多头词频
-                    </h3>
-                    <div class="h-[180px] w-full">
-                        <canvas id="bullish-words-chart"></canvas>
-                    </div>
-                </div>
-                <!-- Bearish Words Chart -->
-                <div class="glass-card p-5 rounded-2xl">
-                    <h3 class="text-red-400 text-sm font-bold tracking-wider uppercase mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-trend-down"></i> 活跃空头词频
-                    </h3>
-                    <div class="h-[180px] w-full">
-                        <canvas id="bearish-words-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Word Cloud -->
-            <div class="glass-card p-6 rounded-2xl mt-6">
-                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-                    <h3 class="text-white text-base font-bold flex items-center gap-2">
+        <!-- Word Cloud — 与左侧风险卡片同行等高 -->
+            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-2 lg:h-full flex flex-col">
+                <div class="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-3">
+                    <h3 class="text-white text-sm sm:text-base font-bold flex items-center gap-2">
                         <i class="fa-solid fa-cloud text-indigo-400"></i> 词频云图
                     </h3>
                     <div class="flex bg-gray-800/80 p-0.5 rounded-lg border border-gray-700/50">
-                        <button onclick="setWordCloudMode('all')" id="btn-wc-all" class="px-3.5 py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow">
+                        <button onclick="setWordCloudMode('all')" id="btn-wc-all" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow">
                             全部
                         </button>
-                        <button onclick="setWordCloudMode('bullish')" id="btn-wc-bullish" class="px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
+                        <button onclick="setWordCloudMode('bullish')" id="btn-wc-bullish" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
                             多头
                         </button>
-                        <button onclick="setWordCloudMode('bearish')" id="btn-wc-bearish" class="px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
+                        <button onclick="setWordCloudMode('bearish')" id="btn-wc-bearish" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
                             空头
                         </button>
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 mb-3">词越大代表出现越频繁。云图基于当日样本的多头/空头词库匹配统计。</p>
-                <div class="w-full h-[260px] bg-gray-950/30 border border-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
+                <div class="w-full flex-1 min-h-[200px] sm:min-h-[260px] bg-gray-950/30 border border-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
                     <canvas id="wordcloud-canvas" class="w-full h-full"></canvas>
                 </div>
             </div>
 
-        </section>
-
         <!-- Full Width: Real-time Sentiment Simulator -->
         <section class="lg:col-span-3">
-            <div class="glass-card p-6 rounded-2xl relative overflow-hidden">
+            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl relative overflow-hidden">
                 <div class="absolute -right-20 -bottom-20 w-40 h-40 rounded-full bg-indigo-500/5 blur-3xl"></div>
                 
                 <h3 class="text-white text-base font-bold mb-4 flex items-center gap-2">
@@ -466,18 +477,18 @@
                 </div>
 
                 <!-- Table Content Container -->
-                <div class="overflow-x-auto max-h-[480px]">
-                    <table class="w-full text-left text-sm border-collapse">
+                <div class="overflow-x-auto max-h-[360px] sm:max-h-[480px] chart-scroll-hint">
+                    <table class="w-full text-left text-sm border-collapse min-w-[320px]">
                         <thead>
                             <tr class="bg-gray-950/30 text-gray-400 border-b border-gray-800 font-semibold text-xs tracking-wider">
-                                <th class="py-3.5 px-6 w-20">阅读</th>
-                                <th class="py-3.5 px-4 w-20">评论</th>
-                                <th class="py-3.5 px-4">帖子标题</th>
-                                <th class="py-3.5 px-4 w-16">来源</th>
-                                <th class="py-3.5 px-4 w-32">情绪匹配</th>
-                                <th class="py-3.5 px-4 w-24 text-center">情绪得分</th>
-                                <th class="py-3.5 px-4 w-24">作者</th>
-                                <th class="py-3.5 px-6 w-32">更新时间</th>
+                                <th class="py-3 px-3 sm:px-6 w-20 hidden sm:table-cell">阅读</th>
+                                <th class="py-3 px-3 sm:px-4 w-20 hidden sm:table-cell">评论</th>
+                                <th class="py-3 px-3 sm:px-4">帖子标题</th>
+                                <th class="py-3 px-3 sm:px-4 w-16 hidden md:table-cell">来源</th>
+                                <th class="py-3 px-3 sm:px-4 w-32 hidden sm:table-cell">情绪匹配</th>
+                                <th class="py-3 px-3 sm:px-4 w-20 sm:w-24 text-center">得分</th>
+                                <th class="py-3 px-3 sm:px-4 w-24 hidden md:table-cell">作者</th>
+                                <th class="py-3 px-3 sm:px-6 w-28 sm:w-32">时间</th>
                             </tr>
                         </thead>
                         <tbody id="posts-table-body" class="divide-y divide-gray-800/40">
@@ -487,9 +498,9 @@
                 </div>
                 
                 <!-- Table Footer/Stats -->
-                <div class="px-6 py-4 border-t border-gray-800 bg-gray-950/20 text-xs text-gray-500 flex justify-between items-center">
+                <div class="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-800 bg-gray-950/20 text-xs text-gray-500 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                     <span id="showing-posts-count">Showing 0 of 0 posts</span>
-                    <span>点击帖子标题可跳转至原平台讨论页 ↗</span>
+                    <span class="hidden sm:inline">点击帖子标题可跳转至原平台讨论页 ↗</span>
                 </div>
                 
             </div>
@@ -987,9 +998,9 @@
                 tr.className = "hover:bg-gray-800/20 transition-all duration-200 text-gray-300";
                 
                 // Read cell
-                const readTd = `<td class="py-3 px-6 font-mono text-xs font-semibold text-teal-400">${post.read_count.toLocaleString()}</td>`;
+                const readTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-6 font-mono text-xs font-semibold text-teal-400 hidden sm:table-cell">${post.read_count.toLocaleString()}</td>`;
                 // Reply cell
-                const replyTd = `<td class="py-3 px-4 font-mono text-xs text-indigo-400">${post.reply_count.toLocaleString()}</td>`;
+                const replyTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 font-mono text-xs text-indigo-400 hidden sm:table-cell">${post.reply_count.toLocaleString()}</td>`;
                 
                 // Title link with highlighted words
                 const cleanTitle = highlightKeywords(post.title, post.pos_words, post.neg_words);
@@ -1004,12 +1015,12 @@
                     }
                 }
                 
-                const titleTd = `<td class="py-3 px-4 text-xs font-medium"><a href="${fullUrl}" target="_blank" class="hover:text-teal-300 hover:underline transition-colors block leading-relaxed">${cleanTitle}</a></td>`;
+                const titleTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 text-xs font-medium"><a href="${fullUrl}" target="_blank" class="hover:text-teal-300 hover:underline transition-colors block leading-relaxed line-clamp-2 sm:line-clamp-none">${cleanTitle}</a></td>`;
 
                 const sourceLabels = { eastmoney: '东财', xueqiu: '雪球', ths: '同花顺' };
                 const srcKey = post.source || 'eastmoney';
                 const srcLabel = sourceLabels[srcKey] || srcKey;
-                const sourceTd = `<td class="py-3 px-4 text-[10px] text-gray-400 font-semibold">${srcLabel}</td>`;
+                const sourceTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 text-[10px] text-gray-400 font-semibold hidden md:table-cell">${srcLabel}</td>`;
                 
                 // Badges for matched words
                 let badgeHtml = "-";
@@ -1027,22 +1038,22 @@
                     });
                     badgeHtml += "</div>";
                 }
-                const keywordsTd = `<td class="py-3 px-4">${badgeHtml}</td>`;
+                const keywordsTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">${badgeHtml}</td>`;
                 
                 // Sentiment Score Cell
                 let scoreBadgeClass = "bg-gray-800 text-gray-400";
                 if (post.sentiment_score > 0) scoreBadgeClass = "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold bullish-glow";
                 if (post.sentiment_score < 0) scoreBadgeClass = "bg-rose-500/10 border border-rose-500/30 text-red-400 font-bold bearish-glow";
                 
-                const scoreTd = `<td class="py-3 px-4 text-center" title="原始权重 (阅读量+1): ${post.read_count + 1}
+                const scoreTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center" title="原始权重 (阅读量+1): ${post.read_count + 1}
 同账号发布惩罚: ${post.spammer_penalty}
 时间衰减因子: ${post.time_decay}
 复合量化最终权重: ${post.final_weight}"><span class="inline-block text-[10px] px-2 py-0.5 rounded-full font-mono ${scoreBadgeClass}">${post.sentiment_score.toFixed(2)}</span></td>`;
                 
                 // Author Cell
-                const authorTd = `<td class="py-3 px-4 text-xs text-gray-400 truncate max-w-[100px]" title="${post.author}">${post.author}</td>`;
+                const authorTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-4 text-xs text-gray-400 truncate max-w-[100px] hidden md:table-cell" title="${post.author}">${post.author}</td>`;
                 // Time Cell
-                const timeTd = `<td class="py-3 px-6 text-xs text-gray-500 font-mono">${post.time}</td>`;
+                const timeTd = `<td class="py-2.5 sm:py-3 px-3 sm:px-6 text-[10px] sm:text-xs text-gray-500 font-mono whitespace-nowrap">${post.time}</td>`;
                 
                 tr.innerHTML = readTd + replyTd + titleTd + sourceTd + keywordsTd + scoreTd + authorTd + timeTd;
                 tbody.appendChild(tr);
@@ -1061,9 +1072,13 @@
             filterAndRenderTable();
         });
 
+        let resizeTimer;
         window.addEventListener("resize", () => {
-            // Keep word cloud responsive
-            renderWordCloud();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                renderWordCloud();
+                if (typeof trendChartObj !== 'undefined' && trendChartObj) trendChartObj.resize();
+            }, 150);
         });
     </script>
 </body>
