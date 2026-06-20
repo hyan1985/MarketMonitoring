@@ -256,7 +256,7 @@ class DashboardGenerator:
                     <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center gap-2">
                         <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
                     </h3>
-                    <div class="gauge-container mb-5">
+                    <div class="gauge-container mx-auto mb-5">
                         <div class="gauge-body"></div>
                         <div class="gauge-cover">
                             <span class="text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">{data["summary"]["overall_weighted_score"]}</span>
