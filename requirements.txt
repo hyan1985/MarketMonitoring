@@ -1,0 +1,4 @@
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+jieba>=0.42.1
+tushare>=1.4.0
