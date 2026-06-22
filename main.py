@@ -7,10 +7,10 @@ import sys
 import webbrowser
 from datetime import datetime, time, timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
+
+from beijing_time import BEIJING_TZ, now_beijing
 
 PROJECT_DIR = Path(__file__).resolve().parent
-SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 from guba_crawler import GubaCrawler
 from xueqiu_crawler import XueqiuCrawler
 from ths_crawler import ThsCrawler
@@ -50,12 +50,12 @@ def parse_args():
     parser.add_argument(
         "--today",
         action="store_true",
-        help="分析北京时间当天的帖子（定时任务用）",
+        help="分析北京时间当天的帖子",
     )
     parser.add_argument(
         "--yesterday",
         action="store_true",
-        help="分析北京时间昨天的帖子（补跑/手动用）",
+        help="分析北京时间昨天的帖子（定时任务用：0 点后跑前一天全天）",
     )
     parser.add_argument(
         "--no-browser",
@@ -66,7 +66,7 @@ def parse_args():
 
 def resolve_run_date(args):
     """Return (run_date, reference_time) in Asia/Shanghai."""
-    now_sh = datetime.now(SHANGHAI_TZ)
+    now_sh = now_beijing()
     if args.date:
         run_date = datetime.strptime(args.date, "%Y-%m-%d").date()
     elif args.today:
@@ -76,7 +76,7 @@ def resolve_run_date(args):
     else:
         # 本地默认跑昨天（早上手动跑时数据更完整）
         run_date = (now_sh - timedelta(days=1)).date()
-    reference_time = datetime.combine(run_date, time(23, 59, 59), tzinfo=SHANGHAI_TZ)
+    reference_time = datetime.combine(run_date, time(23, 59, 59), tzinfo=BEIJING_TZ)
     return run_date, reference_time.replace(tzinfo=None)
 
 def main():
@@ -256,9 +256,9 @@ def main():
     print_step("步骤 3.5: 计算大盘综合风险值 (TuShare 多维数据)")
     risk_data = None
     try:
-        # 交易日相关数据：始终取最近交易日（周末/假期自动回退）
+        # 与帖子统计日对齐：取该日或之前最近一个有行情的交易日
         risk_data = compute_risk_score(
-            trade_date_str=None,
+            trade_date_str=run_date.strftime("%Y%m%d"),
             sentiment_score=sentiment_results["summary"]["overall_weighted_score"],
         )
         print(f"\n{Colors.BOLD}【大盘风险值报告】{Colors.ENDC}")

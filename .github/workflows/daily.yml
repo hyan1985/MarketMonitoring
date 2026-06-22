@@ -2,8 +2,9 @@ name: Daily Sentiment Analysis
 
 on:
   schedule:
-    # 北京时间每天 23:30 = UTC 15:30
-    - cron: "30 15 * * *"
+    # 北京时间每天 00:30（0 点后）= UTC 16:30
+    # 抓取前一自然日全天帖子，TuShare 取该日或之前最近已入库交易日行情
+    - cron: "30 16 * * *"
   workflow_dispatch:
 
 permissions:
@@ -29,13 +30,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run today sentiment analysis
+      - name: Run daily sentiment analysis (Beijing time)
         env:
           TZ: Asia/Shanghai
           TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
-        run: python main.py --today --no-browser
+        run: python main.py --yesterday --no-browser
 
       - name: Commit results
+        env:
+          TZ: Asia/Shanghai
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -43,6 +46,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: daily sentiment $(date -u +%Y-%m-%d)"
+            git commit -m "chore: daily sentiment $(date +%Y-%m-%d)"
             git push
           fi

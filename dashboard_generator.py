@@ -42,6 +42,22 @@ class DashboardGenerator:
 
         risk = data.get("risk")  # TuShare risk score (optional)
 
+        source_labels = {"eastmoney": "东财股吧", "xueqiu": "雪球", "ths": "同花顺"}
+        posts_for_sources = data.get("posts", [])
+        actual_sources = sorted({p.get("source", "eastmoney") for p in posts_for_sources})
+        if actual_sources:
+            sources_text = " + ".join(source_labels.get(s, s) for s in actual_sources)
+        else:
+            enabled = [source_labels[k] for k, v in (config.get("sources") or {}).items() if v]
+            sources_text = " + ".join(enabled) if enabled else "东财股吧"
+
+        conc_value = None
+        if risk:
+            conc_value = risk.get("dimensions", {}).get("concentration", {}).get("value")
+        conc_display = f"{conc_value}" if conc_value is not None else "—"
+        conc_unit = "%" if conc_value is not None else ""
+        risk_trade_date = (risk or {}).get("trade_date", "")
+
         # Prepare lexicon for client-side simulator
         bullish_lexicon_json = json.dumps(config.get("bullish_words", []))
         bearish_lexicon_json = json.dumps(config.get("bearish_words", []))
@@ -244,15 +260,15 @@ class DashboardGenerator:
                 </h1>
             </div>
             <p class="text-gray-400 text-xs sm:text-sm mt-2 sm:mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <span>多源聚合：东财股吧 + 雪球 + 同花顺</span>
+                <span>数据源：{sources_text}</span>
                 <span class="hidden sm:inline text-gray-500">|</span>
-                <span class="text-gray-500">统计日 {data["summary"].get("scan_date", data["summary"]["last_updated"][:10])}</span>
+                <span class="text-gray-500">统计日 {data["summary"].get("scan_date", data["summary"]["last_updated"][:10])}（北京时间）</span>
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
             </p>
         </div>
         <div class="glass-card mobile-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300 w-full md:w-auto shrink-0">
             <div>
-                <span class="text-gray-400 text-xs block">数据更新时间</span>
+                <span class="text-gray-400 text-xs block">数据更新时间（北京时间）</span>
                 <span class="font-mono text-teal-400 font-semibold">{data["summary"]["last_updated"]}</span>
             </div>
             <div class="border-l border-gray-800 h-8"></div>
@@ -395,10 +411,11 @@ class DashboardGenerator:
                     </span>
                 </div>
                 <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
+                {f'<p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
                 <!-- 资金集中度 → 大号突出 -->
                 <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
                     <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
-                    <div class="text-4xl font-extrabold font-mono text-amber-300 mt-1">{risk["dimensions"]["concentration"]["value"]}<span class="text-lg text-amber-400/60">%</span></div>
+                    <div class="text-4xl font-extrabold font-mono text-amber-300 mt-1">{conc_display}<span class="text-lg text-amber-400/60">{conc_unit}</span></div>
                     <span class="text-[10px] text-amber-400/40 mt-0.5 block">历史极值 52.1% · 当前 {risk["dimensions"]["concentration"]["score"]} 分</span>
                 </div>
                 <!-- 其他维度 -->

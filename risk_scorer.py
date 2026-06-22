@@ -16,9 +16,14 @@ from datetime import datetime, timedelta
 
 import tushare as ts
 
-TUSHARE_TOKEN = os.environ.get("TUSHARE_TOKEN", "06d397e3cdbd9b7b6ada875d7efc8329464b1b8195017793133d06d8")
-ts.set_token(TUSHARE_TOKEN)
-PRO = ts.pro_api()
+from beijing_time import today_beijing
+
+TUSHARE_TOKEN = os.environ.get("TUSHARE_TOKEN", "")
+if TUSHARE_TOKEN:
+    ts.set_token(TUSHARE_TOKEN)
+    PRO = ts.pro_api()
+else:
+    PRO = None
 
 # 行业缓存（首次加载后不会重复请求）
 _INDUSTRY_MAP = None
@@ -38,25 +43,53 @@ def _load_industry_map():
     return _INDUSTRY_MAP
 
 
-def _last_trade_date(target_date=None):
-    """找到最近的交易日（遇周末/假期往前推）"""
+def _is_trade_day(d):
+    """判断是否为上交所交易日。"""
+    if PRO is None:
+        return False
+    ds = d.strftime("%Y%m%d")
+    try:
+        df = PRO.trade_cal(exchange="SSE", start_date=ds, end_date=ds)
+        return not df.empty and df.iloc[0].get("is_open", 0) == 1
+    except Exception:
+        return False
+
+
+def _has_daily_data(trade_date_str):
+    """TuShare daily 是否已有该日全市场行情（未入库时返回 False）。"""
+    if PRO is None:
+        return False
+    try:
+        df = PRO.daily(trade_date=trade_date_str, fields="ts_code")
+        return not df.empty
+    except Exception:
+        return False
+
+
+def _last_trade_date(target_date=None, require_data=False):
+    """
+    找到最近的交易日。
+    require_data=True 时，继续往前找直到 daily 行情实际可用（避免当日未收盘/T+1 未入库显示 0%）。
+    """
     if target_date is None:
-        target = datetime.now().date()
+        target = today_beijing()
     elif isinstance(target_date, str):
-        target = datetime.strptime(target_date, "%Y-%m-%d").date()
+        if len(target_date) == 8:
+            target = datetime.strptime(target_date, "%Y%m%d").date()
+        else:
+            target = datetime.strptime(target_date, "%Y-%m-%d").date()
     else:
         target = target_date
 
-    # 最多回退 10 天找交易日
-    for i in range(10):
+    lookback = 15 if require_data else 10
+    for i in range(lookback):
         d = target - timedelta(days=i)
-        ds = d.strftime("%Y%m%d")
-        try:
-            df = PRO.trade_cal(exchange="SSE", start_date=ds, end_date=ds)
-            if not df.empty and df.iloc[0].get("is_open", 0) == 1:
-                return d
-        except Exception:
-            pass
+        if not _is_trade_day(d):
+            continue
+        if require_data and not _has_daily_data(d.strftime("%Y%m%d")):
+            continue
+        return d
+
     return target
 
 
@@ -68,14 +101,16 @@ def _score_concentration(trade_date_str):
     TuShare: daily 接口获取当日全市场所有股票的成交额
     取成交额排名前 5% 的个股，计算其成交额之和 / 全市场成交额
     """
+    if PRO is None:
+        return 10, None
     df = PRO.daily(trade_date=trade_date_str, fields="ts_code,amount")
     if df.empty:
-        return 10, 0  # 无数据返回中位分
+        return 10, None  # 无数据，不显示 0%
 
     df = df.dropna(subset=["amount"])
     total_amount = df["amount"].sum()
     if total_amount == 0:
-        return 10, 0
+        return 10, None
 
     df_sorted = df.sort_values("amount", ascending=False)
     top_n = max(1, int(len(df_sorted) * 0.05))
@@ -101,6 +136,8 @@ def _score_margin(trade_date_str):
     TuShare: margin 获取融资余额, daily_basic 获取总市值
     风险逻辑：融资占比越高 → 杠杆资金参与度越高 → 风险越大
     """
+    if PRO is None:
+        return 10, None
     try:
         mg = PRO.margin(trade_date=trade_date_str, fields="exchange_id,rzye")
     except Exception:
@@ -111,12 +148,12 @@ def _score_margin(trade_date_str):
         db = None
 
     if mg is None or mg.empty or db is None or db.empty:
-        return 10, 0
+        return 10, None
 
     total_margin = mg["rzye"].sum()
     total_mv = db["total_mv"].sum() * 10000  # daily_basic 单位万元→元
     if total_mv == 0:
-        return 10, 0
+        return 10, None
 
     ratio = total_margin / total_mv  # e.g. 0.028
 
@@ -141,7 +178,7 @@ def _score_industry_concentration(trade_date_str):
     """
     df = PRO.daily(trade_date=trade_date_str, fields="ts_code,amount")
     if df.empty:
-        return 10, 0
+        return 10, None
 
     industry_map = _load_industry_map()
     tech_codes = {
@@ -155,7 +192,7 @@ def _score_industry_concentration(trade_date_str):
     tech_amount = df_tech["amount"].sum()
 
     if total_amount == 0:
-        return 10, 0
+        return 10, None
 
     ratio = tech_amount / total_amount
 
@@ -180,7 +217,7 @@ def _score_breadth(trade_date_str):
     """
     df = PRO.daily(trade_date=trade_date_str, fields="ts_code,pct_chg")
     if df.empty:
-        return 10, 0
+        return 10, None
 
     total = len(df)
     up = len(df[df["pct_chg"] > 0])
@@ -257,13 +294,15 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         }
     """
     if trade_date_str is None:
-        target = _last_trade_date()
+        target = _last_trade_date(require_data=True)
         trade_date_str = target.strftime("%Y%m%d")
     else:
         target = datetime.strptime(trade_date_str, "%Y%m%d").date()
-        # 若指定日期非交易日，自动回退到最近交易日
-        target = _last_trade_date(target)
+        target = _last_trade_date(target, require_data=True)
         trade_date_str = target.strftime("%Y%m%d")
+
+    if PRO is None:
+        print("  [RiskScorer] 警告: 未配置 TUSHARE_TOKEN，风险维度将使用中位分占位。")
 
     print(f"\n  [RiskScorer] 计算 {target} 大盘风险分...")
 

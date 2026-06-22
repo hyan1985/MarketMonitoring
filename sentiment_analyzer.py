@@ -1,8 +1,9 @@
 import json
 import re
 import os
-import time
 from datetime import datetime
+
+from beijing_time import format_beijing, now_beijing_naive, today_beijing
 import jieba
 from collections import Counter
 import sys
@@ -72,7 +73,7 @@ class SentimentAnalyzer:
     def parse_datetime(self, time_str, reference_date=None):
         """Standardize Guba's date format (e.g. '05-17 08:55' or '08:55') into standard datetime pieces"""
         time_str = time_str.strip()
-        ref = reference_date or datetime.now().date()
+        ref = reference_date or today_beijing()
         current_year = ref.year
         current_date_str = ref.strftime("%Y-%m-%d")
         
@@ -184,7 +185,7 @@ class SentimentAnalyzer:
         
         author_counts = {}
         spam_skipped_count = 0
-        now = reference_time or datetime.now()
+        now = reference_time or now_beijing_naive()
         reference_date = now.date()
         
         for post in posts:
@@ -329,7 +330,7 @@ class SentimentAnalyzer:
                 "bullish_posts": pos_posts_count,
                 "bearish_posts": neg_posts_count,
                 "neutral_posts": neu_posts_count,
-                "last_updated": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                "last_updated": format_beijing()
             },
             "top_bullish_words": [{"word": k, "count": v} for k, v in bullish_counter.most_common(15)],
             "top_bearish_words": [{"word": k, "count": v} for k, v in bearish_counter.most_common(15)],

@@ -2,6 +2,8 @@ import random
 import re
 from datetime import datetime
 
+from beijing_time import today_beijing, epoch_to_beijing_str
+
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -47,19 +49,12 @@ def strip_html(text):
 
 
 def format_timestamp_ms(ts_ms):
-    """Format millisecond epoch to MM-DD HH:MM for the sentiment analyzer."""
-    try:
-        ts = int(ts_ms) / 1000.0
-        return datetime.fromtimestamp(ts).strftime("%m-%d %H:%M")
-    except Exception:
-        return ""
+    """Format millisecond epoch to MM-DD HH:MM (北京时间)."""
+    return epoch_to_beijing_str(ts_ms)
 
 
 def format_timestamp_sec(ts_sec):
-    try:
-        return datetime.fromtimestamp(int(ts_sec)).strftime("%m-%d %H:%M")
-    except Exception:
-        return ""
+    return epoch_to_beijing_str(ts_sec)
 
 
 def calc_pages(target_posts, per_page):
@@ -70,7 +65,7 @@ def calc_pages(target_posts, per_page):
 
 def normalize_post_date(time_str, reference_date=None):
     """Parse forum time strings into YYYY-MM-DD (uses reference_date's year when needed)."""
-    reference_date = reference_date or datetime.now().date()
+    reference_date = reference_date or today_beijing()
     time_str = (time_str or "").strip()
     if not time_str:
         return None
@@ -99,7 +94,7 @@ def normalize_post_date(time_str, reference_date=None):
 
 def filter_posts_for_run_date(posts, run_date=None):
     """Keep only posts whose timestamp falls on the script run date."""
-    run_date = run_date or datetime.now().date()
+    run_date = run_date or today_beijing()
     target = run_date.strftime("%Y-%m-%d")
     kept = []
     skipped_by_source = {}
