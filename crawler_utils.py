@@ -115,6 +115,30 @@ def filter_posts_for_run_date(posts, run_date=None):
     return kept, len(posts) - len(kept), skipped_by_source, target
 
 
+def page_dates_for_run_date(posts, run_date):
+    """Normalize listing timestamps on one page to YYYY-MM-DD strings."""
+    dates = []
+    for post in posts:
+        post_date = normalize_post_date(post.get("time", ""), reference_date=run_date)
+        if post_date:
+            dates.append(post_date)
+    return dates
+
+
+def should_stop_crawl_for_run_date(page_posts, run_date, found_target_date):
+    """
+    Return True when crawling should stop after this page.
+    Stop once we've seen the run_date and this page reaches the previous day.
+    """
+    if not found_target_date:
+        return False
+    dates = page_dates_for_run_date(page_posts, run_date)
+    if not dates:
+        return False
+    target = run_date.strftime("%Y-%m-%d")
+    return min(dates) < target
+
+
 def merge_posts(post_lists):
     """Merge posts from multiple crawlers, dedupe by source + post_id."""
     merged = []

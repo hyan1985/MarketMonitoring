@@ -5,6 +5,8 @@ import time
 import random
 import sys
 
+from crawler_utils import normalize_post_date, should_stop_crawl_for_run_date
+
 # List of common User-Agents to prevent bot detection
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -145,6 +147,53 @@ class GubaCrawler:
                 sleep_time = random.uniform(0.5, 1.5)
                 time.sleep(sleep_time)
                 
+        print(f"[Crawler] Completed. Total unique posts collected: {len(all_posts)}")
+        return all_posts
+
+    def crawl_until_run_date(self, run_date, max_pages=80, max_posts=None):
+        """
+        Crawl listing pages until the run_date is covered and the feed reaches the prior day.
+        Needed because next-morning runs are buried under today's posts when using a fixed page cap.
+        """
+        target = run_date.strftime("%Y-%m-%d")
+        all_posts = []
+        seen_ids = set()
+        found_target_date = False
+
+        for p in range(1, max_pages + 1):
+            posts = self.fetch_page(p)
+            if not posts:
+                break
+
+            for post in posts:
+                p_id = post["post_id"]
+                if p_id and p_id not in seen_ids:
+                    seen_ids.add(p_id)
+                    all_posts.append(post)
+                elif not p_id:
+                    all_posts.append(post)
+                if max_posts and len(all_posts) >= max_posts:
+                    print(f"[Crawler] Reached max_posts={max_posts}, stopping early.")
+                    print(f"[Crawler] Completed. Total unique posts collected: {len(all_posts)}")
+                    return all_posts
+
+            page_dates = [normalize_post_date(post.get("time", ""), reference_date=run_date) for post in posts]
+            if any(d == target for d in page_dates if d):
+                found_target_date = True
+
+            if should_stop_crawl_for_run_date(posts, run_date, found_target_date):
+                print(f"  [Crawler] Reached prior day after covering {target}; stopping at page {p}.")
+                break
+
+            if p < max_pages:
+                time.sleep(random.uniform(0.5, 1.5))
+
+        if not found_target_date:
+            print(
+                f"  [Crawler] Warning: did not reach any posts dated {target} within {max_pages} pages.",
+                file=sys.stderr,
+            )
+
         print(f"[Crawler] Completed. Total unique posts collected: {len(all_posts)}")
         return all_posts
 

@@ -2,8 +2,8 @@ name: Daily Sentiment Analysis
 
 on:
   schedule:
-    # 北京时间每天 08:00 = UTC 00:00
-    - cron: "0 0 * * *"
+    # 北京时间每天 23:30 = UTC 15:30
+    - cron: "30 15 * * *"
   workflow_dispatch:
 
 permissions:
@@ -29,11 +29,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run yesterday sentiment analysis
+      - name: Run today sentiment analysis
         env:
           TZ: Asia/Shanghai
           TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
-        run: python main.py --yesterday --no-browser
+        run: python main.py --today --no-browser
 
       - name: Commit results
         run: |

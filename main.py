@@ -48,9 +48,14 @@ def parse_args():
         help="按指定日期过滤帖子并计入日线（补跑历史日用）",
     )
     parser.add_argument(
+        "--today",
+        action="store_true",
+        help="分析北京时间当天的帖子（定时任务用）",
+    )
+    parser.add_argument(
         "--yesterday",
         action="store_true",
-        help="分析北京时间昨天的帖子（定时任务用）",
+        help="分析北京时间昨天的帖子（补跑/手动用）",
     )
     parser.add_argument(
         "--no-browser",
@@ -64,18 +69,20 @@ def resolve_run_date(args):
     now_sh = datetime.now(SHANGHAI_TZ)
     if args.date:
         run_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+    elif args.today:
+        run_date = now_sh.date()
     elif args.yesterday:
         run_date = (now_sh - timedelta(days=1)).date()
     else:
-        # 默认跑昨天（帖子数据更完整）
+        # 本地默认跑昨天（早上手动跑时数据更完整）
         run_date = (now_sh - timedelta(days=1)).date()
     reference_time = datetime.combine(run_date, time(23, 59, 59), tzinfo=SHANGHAI_TZ)
     return run_date, reference_time.replace(tzinfo=None)
 
 def main():
     args = parse_args()
-    if args.date and args.yesterday:
-        print_error("--date 与 --yesterday 不能同时使用。")
+    if sum([bool(args.date), args.today, args.yesterday]) > 1:
+        print_error("--date、--today、--yesterday 只能三选一。")
         sys.exit(1)
     print(f"{Colors.HEADER}{Colors.BOLD}====================================================")
     print("      大A情绪分参考模型 - 自动化分析运行系统        ")
@@ -107,6 +114,7 @@ def main():
         run_date, reference_time = resolve_run_date(args)
 
         pages_to_crawl = config.get("pages_to_crawl") or calc_pages(posts_per_source, 80)
+        max_crawl_pages = config.get("max_crawl_pages", 80)
         xueqiu_pages = config.get("xueqiu_pages") or calc_pages(posts_per_source, 10)
         ths_pages = config.get("ths_pages") or calc_pages(posts_per_source, 20)
 
@@ -114,10 +122,16 @@ def main():
         print_success(
             f"已加载配置。每源目标 {posts_per_source} 条；数据源: {', '.join(enabled)}。"
         )
-        print(
-            f"  抓取计划 → 东财 {pages_to_crawl} 页，雪球 {xueqiu_pages} 页 ({xueqiu_symbol})，"
-            f"同花顺 {ths_pages} 页 ({ths_code})"
-        )
+        if filter_run_date_only:
+            print(
+                f"  抓取计划 → 按日边界翻页（最多 {max_crawl_pages} 页），"
+                f"覆盖 {run_date.strftime('%Y-%m-%d')} 全天后再停止"
+            )
+        else:
+            print(
+                f"  抓取计划 → 东财 {pages_to_crawl} 页，雪球 {xueqiu_pages} 页 ({xueqiu_symbol})，"
+                f"同花顺 {ths_pages} 页 ({ths_code})"
+            )
         if filter_run_date_only:
             print(f"  时间过滤 → 仅保留运行日 {run_date.strftime('%Y-%m-%d')} 的帖子")
     except Exception as e:
@@ -131,9 +145,14 @@ def main():
     if sources.get("eastmoney", True):
         print(f"\n{Colors.BOLD}>> 东方财富股吧{Colors.ENDC}")
         guba_crawler = GubaCrawler(code=guba_code)
-        guba_posts = guba_crawler.crawl_multiple_pages(
-            num_pages=pages_to_crawl, max_posts=posts_per_source
-        )
+        if filter_run_date_only:
+            guba_posts = guba_crawler.crawl_until_run_date(
+                run_date=run_date, max_pages=max_crawl_pages
+            )
+        else:
+            guba_posts = guba_crawler.crawl_multiple_pages(
+                num_pages=pages_to_crawl, max_posts=posts_per_source
+            )
         post_batches.append(guba_posts)
         print_success(f"东财股吧: {len(guba_posts)} 条")
 

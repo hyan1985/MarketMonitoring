@@ -213,6 +213,7 @@
   },
   "posts_per_source": 1000,
   "filter_run_date_only": true,
+  "max_crawl_pages": 80,
   "guba_code": "zssh000001",
   "pages_to_crawl": 13,
   "xueqiu_symbol": "SH000001",

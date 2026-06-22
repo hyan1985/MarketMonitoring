@@ -31,8 +31,9 @@ git clone https://github.com/hyan1985/MarketMonitoring.git
 cd MarketMonitoring
 pip install -r requirements.txt
 cp config.example.json config.json   # 按需填写 TuShare Token 等
-python main.py                       # 默认分析昨天
-python main.py --yesterday           # 同上（定时任务用）
+python main.py                       # 默认分析昨天（本地早上跑）
+python main.py --today               # 分析今天（定时任务用）
+python main.py --yesterday           # 同上，显式指定昨天
 python main.py --date 2026-06-15 --no-browser  # 补跑指定日期
 ```
 
@@ -82,8 +83,8 @@ git push -u origin main
 ## 定时任务
 
 - 工作流：`.github/workflows/daily.yml`
-- **每天北京时间 08:00** 自动执行
-- 分析**昨天**的论坛帖子，TuShare 风险数据取**最近交易日**
+- **每天北京时间 23:30** 自动执行
+- 分析**当天**的论坛帖子，TuShare 风险数据取**最近交易日**
 - 自动 commit `data.json` 与 `index.html`
 
 ---
