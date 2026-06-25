@@ -250,7 +250,7 @@ def _index_bars_upto(trade_date_str, window=250):
             ts_code="000001.SH",
             start_date=start,
             end_date=trade_date_str,
-            fields="trade_date,close,pct_chg",
+            fields="trade_date,close,pct_chg,amount",
         )
     except Exception:
         return None
@@ -448,6 +448,78 @@ def _percentile_rank(value, series):
         return None
     below = sum(1 for v in valid if v <= value)
     return below / len(valid)
+
+
+def _vol_price_divergence_score(trade_date_str):
+    """
+    量价背离领先信号（顶部派发的领先特征）。
+    思路：指数在高位区，但「成交量退潮 + 参与面走弱」，
+    即指数靠权重撑着、底下却在缩量背离 —— 顶部派发的典型领先形态。
+
+    返回 (score0to3, detail or None)：
+      score 表示当日背离强度（0~3），用于上层判断是否持续。
+    """
+    bars = _index_bars_upto(trade_date_str, 60)
+    if bars is None or len(bars) < 25 or "amount" not in bars.columns:
+        return 0, None
+
+    closes = bars["close"].astype(float).tolist()
+    amounts = bars["amount"].astype(float).tolist()
+    if any(a is None or a <= 0 for a in amounts[-20:]):
+        return 0, None
+
+    cur_close = closes[-1]
+    high20 = max(closes[-20:])
+    # 高位：当日收盘在近20日高点的 -1.5% 以内
+    near_high = high20 > 0 and (cur_close / high20 - 1) * 100 >= -1.5
+    if not near_high:
+        return 0, None
+
+    vol5 = sum(amounts[-5:]) / 5
+    vol20 = sum(amounts[-20:]) / 20
+    if vol20 <= 0:
+        return 0, None
+    vol_contraction = (vol20 - vol5) / vol20  # >0 表示近5日量能低于20日均
+
+    # 参与面：近5日上涨家数均值
+    up5 = _avg_up_ratio(_trade_dates_upto(trade_date_str, 5))
+
+    score = 0
+    reasons = []
+    # 条件1：高位缩量（量能退潮 ≥8%）
+    if vol_contraction >= 0.08:
+        score += 1
+        reasons.append(f"高位缩量{vol_contraction*100:.0f}%")
+    if vol_contraction >= 0.18:
+        score += 1  # 缩量更明显，权重加重
+    # 条件2：参与面退潮（上涨家数偏少）
+    if up5 is not None and up5 < 0.42:
+        score += 1
+        reasons.append(f"5日上涨家数均{up5*100:.0f}%")
+
+    # 必须「高位 + 缩量」同时成立才算背离（避免单纯宽度低误报）
+    if vol_contraction < 0.08:
+        return 0, None
+    if score < 2:
+        return 0, None
+
+    detail = "指数高位但量能/参与退潮：" + "、".join(reasons)
+    return min(score, 3), detail
+
+
+def _vp_divergence_persistence(trade_date_str, window=5, need=3):
+    """近 window 个交易日内，量价背离成立的天数（领先信号需持续才确认）。"""
+    days = _trade_dates_upto(trade_date_str, window)
+    if not days:
+        return 0, None
+    last_detail = None
+    hits = 0
+    for d in days:
+        sc, det = _vol_price_divergence_score(d)
+        if sc >= 2:
+            hits += 1
+            last_detail = det
+    return hits, last_detail
 
 
 def _avg_up_ratio(days):
@@ -1157,10 +1229,24 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
 
     structure_score = round(min(max(structure_raw, structure_floor), 50), 1)
     breakdown_score = round(min(max(breakdown_raw, breakdown_floor), 50), 1)
+
+    # 顶部派发领先信号：高位量价背离持续（近5日≥3天）
+    # 回测显示零误报、对缩量派发型顶部可提前数日，故确认时拉一档结构预警，
+    # 但不顶到紧急/极端（那两档仍保留给真实破位）。
+    vp_hits, vp_detail = _vp_divergence_persistence(trade_date_str, window=5, need=3)
+    distribution_leading = vp_hits >= 3
+    if distribution_leading:
+        structure_score = round(min(max(structure_score, 42.0), 50), 1)
+
     total_score = _dual_total(structure_score, breakdown_score, bull_trend)
 
     snapshot_score = round(min(base_score + momentum_bonus + accum_bonus, 100), 1)
     level, advice = risk_level(structure_score, breakdown_score, total_score)
+    if distribution_leading and breakdown_score < 22:
+        # 破位未确认时，用派发专属建议覆盖泛化的结构建议
+        if "安全" in level or "中性" in level:
+            level = "🟡 预警"
+        advice = "高位量价背离持续（顶部派发领先信号），建议分批减仓、严守止盈、勿追高"
 
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
     print(
@@ -1172,6 +1258,8 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         + (f" | 硬触发底线 {floor_score}" if floor_score else "")
         + ")"
     )
+    if distribution_leading:
+        print(f"    🔻 顶部派发(领先) | {vp_detail}（近5日{vp_hits}天背离）")
     for sig in all_signals:
         print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
     for trig in hard_triggers:
@@ -1183,6 +1271,9 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "structure_score": structure_score,
         "breakdown_score": breakdown_score,
         "bull_trend": bull_trend,
+        "distribution_leading": distribution_leading,
+        "distribution_detail": (vp_detail if distribution_leading else None),
+        "distribution_days": vp_hits,
         "base_score": base_score,
         "momentum_bonus": momentum_bonus,
         "accumulation_bonus": accum_bonus,
