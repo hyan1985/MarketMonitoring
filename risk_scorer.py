@@ -403,8 +403,10 @@ def _structure_from_dimensions(dimensions):
     struct = (
         dimensions["concentration"]["score"] * 0.5
         + dimensions["industry"]["score"] * 0.5
-        + dimensions["margin"]["score"] * 0.5
     )
+    # 融资数据缺失时（value=None 取了占位中位分）不计入，避免虚增结构分
+    if dimensions["margin"].get("value") is not None:
+        struct += dimensions["margin"]["score"] * 0.5
     sent = dimensions["sentiment"]["score"]
     if sent > 10:
         struct += min((sent - 10) * 0.5, 5.0)
@@ -1082,7 +1084,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "score": s1,
         "value": v1,
         "label": "资金集中度",
-        "detail": f"前5%个股成交额占全市场 {v1}%",
+        "detail": (f"前5%个股成交额占全市场 {v1}%" if v1 is not None else "成交数据暂无（取中位分）"),
         "thresholds": {"warning": 50, "danger": 52},
     }
 
@@ -1092,7 +1094,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "score": s2,
         "value": v2,
         "label": "融资余额占比",
-        "detail": f"融资余额/总市值 = {v2}%",
+        "detail": (f"融资余额/总市值 = {v2}%" if v2 is not None else "融资数据暂无（取中位分）"),
         "thresholds": {"warning": 2.5, "danger": 3.0},
     }
 
@@ -1102,7 +1104,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "score": s3,
         "value": v3,
         "label": "行业集中度",
-        "detail": f"通信+电子成交占全市场 {v3}%",
+        "detail": (f"通信+电子成交占全市场 {v3}%" if v3 is not None else "行业成交数据暂无（取中位分）"),
         "thresholds": {"warning": 30, "danger": 40},
     }
 
@@ -1112,7 +1114,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "score": s4,
         "value": v4,
         "label": "恐慌扩散",
-        "detail": f"跌幅≥5%个股占比 {v4}%",
+        "detail": (f"跌幅≥5%个股占比 {v4}%" if v4 is not None else "行情数据暂无（取中位分）"),
         "thresholds": {"warning": 8, "danger": 12},
     }
 

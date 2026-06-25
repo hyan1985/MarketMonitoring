@@ -79,31 +79,52 @@ def post_drawdown(peak, peak_close, n=60):
     return out
 
 
+# 等级排序：用于按「等级」而非 total_score 统计首次触发日
+_LEVEL_RANK = [
+    ("极端", 4),
+    ("紧急", 3),
+    ("预警", 2),
+    ("中性", 1),
+    ("安全", 0),
+]
+
+
+def _level_rank(level_text):
+    for key, rank in _LEVEL_RANK:
+        if key in level_text:
+            return rank
+    return 0
+
+
 def analyze_event(name, peak, peak_close):
     days = [d for d in _trade_dates_upto(peak, LOOKBACK) if d <= peak]
     pre = [d for d in days if d < peak]
 
-    first45 = first60 = first75 = None
-    max_pre = 0.0
+    first_warn = first_urgent = first_extreme = None
+    max_pre = 0.0  # 见顶前破位分峰值（破位才是真正减仓信号）
     rows = []
 
     for d in days:
         r = quiet_score(d)
         total = r["total_score"]
+        brk = r.get("breakdown_score", 0)
+        rank = _level_rank(r["level"])
         if d in pre:
-            if total >= 45 and first45 is None:
-                first45 = d
-            if total >= 60 and first60 is None:
-                first60 = d
-            if total >= 75 and first75 is None:
-                first75 = d
-            max_pre = max(max_pre, total)
+            if rank >= 2 and first_warn is None:
+                first_warn = d
+            if rank >= 3 and first_urgent is None:
+                first_urgent = d
+            if rank >= 4 and first_extreme is None:
+                first_extreme = d
+            max_pre = max(max_pre, brk)
         ht = [
             t["label"]
             for t in r.get("hard_triggers", [])
             if t["id"] != "extreme_combo"
         ]
-        rows.append((d, total, r["level"], ht, d == peak))
+        rows.append(
+            (d, total, r.get("structure_score", 0), brk, r["level"], ht, d == peak)
+        )
 
     r_peak = quiet_score(peak)
     r_sent = quiet_score(peak, 0.5)
@@ -113,11 +134,13 @@ def analyze_event(name, peak, peak_close):
         "name": name,
         "peak": peak,
         "rows": rows,
-        "first45": first45,
-        "first60": first60,
-        "first75": first75,
+        "first_warn": first_warn,
+        "first_urgent": first_urgent,
+        "first_extreme": first_extreme,
         "max_pre": max_pre,
         "peak_score": r_peak["total_score"],
+        "peak_struct": r_peak.get("structure_score", 0),
+        "peak_break": r_peak.get("breakdown_score", 0),
         "peak_level": r_peak["level"],
         "peak_sent": r_sent["total_score"],
         "drawdown": dd,
@@ -146,7 +169,8 @@ def main():
             _margin_ratio_raw(d)
 
     print("\n" + "=" * 76)
-    print("风险模型回测 — 累积风险 + 硬触发（情绪中性，论坛维度=10）")
+    print("风险模型回测 — 双轨评分（结构拥挤 + 破位风险，情绪中性，论坛维度=10）")
+    print("  等级由破位分主导：预警=结构偏高 / 紧急=破位≥22 / 极端=破位≥35")
     print("=" * 76)
 
     summary = []
@@ -155,37 +179,47 @@ def main():
         summary.append(res)
         print(f"\n【{name}】见顶 {peak[:4]}-{peak[4:6]}-{peak[6:]}")
         print(
-            f"  见顶前: 首次预警≥45={res['first45'] or '无'} | "
-            f"紧急≥60={res['first60'] or '无'} | "
-            f"极端≥75={res['first75'] or '无'} | "
-            f"前{LOOKBACK}日最高={res['max_pre']:.1f}"
+            f"  见顶前: 首次预警={res['first_warn'] or '无'} | "
+            f"紧急={res['first_urgent'] or '无'} | "
+            f"极端={res['first_extreme'] or '无'} | "
+            f"前{LOOKBACK}日破位峰值={res['max_pre']:.1f}"
         )
         print(
-            f"  见顶日: {res['peak_score']:.1f} {res['peak_level']} | "
-            f"情绪0.5假设→{res['peak_sent']:.1f}"
+            f"  见顶日: 总{res['peak_score']:.1f}"
+            f"（结构{res['peak_struct']:.1f}+破位{res['peak_break']:.1f}）"
+            f" {res['peak_level']} | 情绪0.5假设→{res['peak_sent']:.1f}"
         )
         for label, (d, c, pct) in res["drawdown"].items():
             print(f"  见顶后{label}({d}): 上证{c:.0f} 较顶 {pct:+.1f}%")
 
         print("  关键日程:")
-        for d, total, lvl, ht, is_peak in res["rows"]:
-            if total >= 45 or is_peak or d in (res["first60"], res["first45"]):
+        for d, total, struct, brk, lvl, ht, is_peak in res["rows"]:
+            if (
+                _level_rank(lvl) >= 2
+                or is_peak
+                or d in (res["first_urgent"], res["first_warn"])
+            ):
                 mark = " <<<" if is_peak else ""
-                print(f"    {d}  {total:5.1f}  {lvl[:8]:<8}  {','.join(ht) or '-'}{mark}")
+                print(
+                    f"    {d}  总{total:5.1f} 结{struct:4.1f} 破{brk:4.1f}  "
+                    f"{lvl[:8]:<8}  {','.join(ht) or '-'}{mark}"
+                )
 
     print("\n" + "=" * 76)
     print("汇总表")
     print("=" * 76)
     print(
-        f"{'事件':<12} {'预警日':<10} {'紧急日':<10} {'见顶分':>6} {'顶+亢奋':>7} {'60日跌幅':>8}"
+        f"{'事件':<12} {'预警日':<10} {'紧急日':<10} {'见顶(结/破)':>14} "
+        f"{'顶+亢奋':>7} {'60日跌幅':>8}"
     )
     for res in summary:
         dd60 = res["drawdown"].get("60日", (None, None, None))[2]
         dd_str = f"{dd60:+.1f}%" if dd60 is not None else "—"
+        peak_sb = f"{res['peak_struct']:.0f}/{res['peak_break']:.0f}"
         print(
-            f"{res['name']:<12} {str(res['first45'] or '无'):<10} "
-            f"{str(res['first60'] or '无'):<10} "
-            f"{res['peak_score']:6.1f} {res['peak_sent']:7.1f} {dd_str:>8}"
+            f"{res['name']:<12} {str(res['first_warn'] or '无'):<10} "
+            f"{str(res['first_urgent'] or '无'):<10} "
+            f"{res['peak_score']:6.1f}({peak_sb:>5}) {res['peak_sent']:7.1f} {dd_str:>8}"
         )
 
 

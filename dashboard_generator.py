@@ -57,6 +57,21 @@ class DashboardGenerator:
         conc_display = f"{conc_value}" if conc_value is not None else "—"
         conc_unit = "%" if conc_value is not None else ""
         risk_trade_date = (risk or {}).get("trade_date", "")
+
+        # 配色按风险「等级」派生（而非 total_score 阈值），
+        # 否则破位分驱动的「紧急/极端」可能错配成绿/黄色。
+        risk_level_text = (risk or {}).get("level", "")
+        if "极端" in risk_level_text:
+            bar_color, badge_bg, badge_fg = "#7f1d1d", "#7f1d1d55", "#fecaca"
+        elif "紧急" in risk_level_text:
+            bar_color, badge_bg, badge_fg = "#ef4444", "#ef444433", "#fca5a5"
+        elif "预警" in risk_level_text:
+            bar_color, badge_bg, badge_fg = "#f59e0b", "#f59e0b33", "#fde68a"
+        elif "中性" in risk_level_text:
+            bar_color, badge_bg, badge_fg = "#10b981", "#10b98133", "#6ee7b7"
+        else:
+            bar_color, badge_bg, badge_fg = "#6ee7b7", "#6ee7b733", "#a7f3d0"
+
         risk_dual_track_html = ""
         if risk and risk.get("structure_score") is not None:
             bull_line = (
@@ -422,13 +437,13 @@ class DashboardGenerator:
                 <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
                     <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
                          style="width:{risk["total_score"]}%;
-                                background:{f"#7f1d1d" if risk["total_score"] >= 75 else "#ef4444" if risk["total_score"] >= 60 else "#f59e0b" if risk["total_score"] >= 45 else "#10b981" if risk["total_score"] >= 30 else "#6ee7b7"};">
+                                background:{bar_color};">
                     </div>
                 </div>
                 <div class="text-center mb-4">
                     <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
-                          style="background:{f"#7f1d1d55" if risk["total_score"] >= 75 else "#ef444433" if risk["total_score"] >= 60 else "#f59e0b33" if risk["total_score"] >= 45 else "#10b98133" if risk["total_score"] >= 30 else "#6ee7b733"};
-                                 color:{f"#fecaca" if risk["total_score"] >= 75 else "#fca5a5" if risk["total_score"] >= 60 else "#fde68a" if risk["total_score"] >= 45 else "#6ee7b7" if risk["total_score"] >= 30 else "#a7f3d0"};">
+                          style="background:{badge_bg};
+                                 color:{badge_fg};">
                         {risk["level"]}
                     </span>
                 </div>
@@ -476,12 +491,12 @@ class DashboardGenerator:
                     ) + (
                     "".join(
                         f'''                    <div class="mt-2 pt-2 border-t border-red-900/40">
-                        <span class="text-[10px] text-red-400/90 uppercase tracking-wider">硬触发 · 减仓信号</span>
+                        <span class="text-[10px] text-red-400/90 uppercase tracking-wider">顶部信号 · 硬触发</span>
                         <div class="mt-1.5 space-y-1">
                     ''' + "".join(
-                            f'''                            <div class="text-[11px] text-red-300/90">🚨 {t["label"]} <span class="font-mono text-red-400">≥{t["floor"]:.0f}</span></div>
+                            f'''                            <div class="text-[11px] text-red-300/90">🚨 {t["label"]} <span class="font-mono text-[10px] text-gray-500">{"破位" if t.get("track") == "breakdown" else "结构"}</span></div>
                             <p class="text-[10px] text-gray-600 leading-snug mb-1">{t["detail"]}</p>
-                    ''' for t in risk.get("hard_triggers", []) if t.get("id") != "extreme_combo" or len(risk.get("hard_triggers", [])) >= 3
+                    ''' for t in risk.get("hard_triggers", []) if t.get("id") != "extreme_combo" or len(risk.get("hard_triggers", [])) >= 2
                         ) + '''                        </div>
                     </div>
                     '''

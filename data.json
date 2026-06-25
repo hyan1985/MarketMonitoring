@@ -109664,8 +109664,8 @@
     }
   ],
   "risk": {
-    "total_score": 51.8,
-    "structure_score": 42.3,
+    "total_score": 46.8,
+    "structure_score": 37.3,
     "breakdown_score": 9.5,
     "bull_trend": true,
     "base_score": 66.2,
@@ -109748,7 +109748,7 @@
         "score": 10,
         "value": null,
         "label": "融资余额占比",
-        "detail": "融资余额/总市值 = None%",
+        "detail": "融资数据暂无（取中位分）",
         "thresholds": {
           "warning": 2.5,
           "danger": 3.0
