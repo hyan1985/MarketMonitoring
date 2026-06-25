@@ -411,6 +411,20 @@ class DashboardGenerator:
                     </span>
                 </div>
                 <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
+                {f'''<div class="grid grid-cols-2 gap-2 mb-2 text-center">
+                    <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <span class="text-[10px] text-amber-400/80 block">结构拥挤</span>
+                        <span class="text-lg font-bold font-mono text-amber-300">{risk.get("structure_score", 0)}</span>
+                        <span class="text-[10px] text-gray-500">/50</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <span class="text-[10px] text-red-400/80 block">破位风险</span>
+                        <span class="text-lg font-bold font-mono text-red-300">{risk.get("breakdown_score", 0)}</span>
+                        <span class="text-[10px] text-gray-500">/50</span>
+                    </div>
+                </div>
+                {('<p class="text-[10px] text-teal-500/80 text-center mb-1">主升趋势 · 总分熔断生效</p>' if risk.get("bull_trend") else '')}
+                <p class="text-[10px] text-gray-500 text-center mb-1">结构 {risk.get("structure_score", 0)} + 破位 {risk.get("breakdown_score", 0)} = {risk["total_score"]}</p>''' if risk.get("structure_score") is not None else ''}
                 {f'<p class="text-[10px] text-gray-500 text-center mb-1">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
                 {f'<p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
                 <!-- 资金集中度 → 大号突出 -->

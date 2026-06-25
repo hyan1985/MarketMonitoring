@@ -263,6 +263,11 @@ def main():
         )
         print(f"\n{Colors.BOLD}【大盘风险值报告】{Colors.ENDC}")
         print(f"  - 综合风险分 (Risk Score): {Colors.OKCYAN}{risk_data['total_score']}{Colors.ENDC}  [0-100]")
+        print(
+            f"  - 双轨: 结构拥挤 {risk_data.get('structure_score')} "
+            f"+ 破位风险 {risk_data.get('breakdown_score')}"
+            + (" (主升趋势熔断)" if risk_data.get("bull_trend") else "")
+        )
         print(f"  - 风险等级: {risk_data['level']}")
         print(f"  - 策略建议: {risk_data['advice']}")
         if risk_data.get("momentum_bonus") or risk_data.get("accumulation_bonus"):

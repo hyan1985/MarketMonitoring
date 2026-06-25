@@ -9,8 +9,12 @@
 4. 恐慌扩散 — 大跌家数占比（结构性行情下比单纯宽度更能反映抛压）
 5. 情绪分 — 论坛情绪反向映射（太乐观→高风险）
 
-另：变动性信号（最多 +15 分）+ 累积风险（最多 +18 分）+ 硬触发底线分，
-用于在指数仍上涨时识别顶部累积风险与紧急减仓情形。
+另：变动性信号（最多 +15 分）+ 累积风险（最多 +18 分）+ 硬触发底线分。
+
+双轨合成（0–100）：
+- 结构拥挤分（0–50）：资金/行业/杠杆/情绪亢奋 + 结构类信号 → 主升期常偏高，偏「观察」
+- 破位风险分（0–50）：恐慌扩散 + 宽度骤降/隐性走弱 → 真正减仓信号
+多头趋势（MA5>MA10>MA20）下总分熔断：破位 <20 时总分上限 55，避免结构性牛市天天 70–90。
 """
 
 import os
@@ -309,6 +313,119 @@ def _margin_ratio_raw(trade_date_str):
     ratio = float(mg["rzye"].sum() / total_mv)
     _MARGIN_CACHE[trade_date_str] = ratio
     return ratio
+
+
+_STRUCTURE_SIGNAL_IDS = {
+    "conc_rising_3d",
+    "tech_rising_3d",
+    "structural_divergence",
+    "near_250d_high",
+    "elevated_250d",
+    "conc_crowding",
+    "margin_buildup",
+    "breadth_narrowing",
+}
+_BREAKDOWN_SIGNAL_IDS = {"hidden_weakness", "breadth_collapse_3d"}
+_STRUCTURE_TRIGGER_IDS = {
+    "top_divergence",
+    "crowding_at_high",
+    "euphoria_top",
+    "background_risk",
+}
+_BREAKDOWN_TRIGGER_IDS = {"leverage_blowoff"}
+
+
+def _is_bull_trend(trade_date_str):
+    """上证 MA5 > MA10 > MA20 视为多头趋势。"""
+    bars = _index_bars_upto(trade_date_str, 30)
+    if bars is None or len(bars) < 20:
+        return False
+    closes = bars["close"].astype(float).tolist()
+    ma5 = sum(closes[-5:]) / 5
+    ma10 = sum(closes[-10:]) / 10
+    ma20 = sum(closes[-20:]) / 20
+    return ma5 > ma10 > ma20
+
+
+def _split_signals(signals, trade_date_str=None):
+    index_pct = _index_pct_chg(trade_date_str) if trade_date_str else None
+    structure, breakdown = [], []
+    for s in signals:
+        if s["id"] in _BREAKDOWN_SIGNAL_IDS:
+            if s["id"] == "hidden_weakness" and index_pct is not None and index_pct >= 0:
+                structure.append(s)
+            elif s["id"] == "breadth_collapse_3d" and index_pct is not None and index_pct >= -0.1:
+                structure.append(s)
+            else:
+                breakdown.append(s)
+        elif s["id"] in _STRUCTURE_SIGNAL_IDS:
+            structure.append(s)
+        else:
+            structure.append(s)
+    return structure, breakdown
+
+
+def _breakdown_index_boost(trade_date_str):
+    """指数大跌 / 恐慌扩散时抬高破位分（弥补 market_stress 单维上限 20）。"""
+    index_pct = _index_pct_chg(trade_date_str)
+    stats = _get_daily_stats(trade_date_str)
+    severe = stats.get("severe_ratio") if stats else None
+    boost = 0.0
+    if index_pct is not None:
+        if index_pct <= -1.5:
+            boost += 12.0
+        elif index_pct <= -0.8:
+            boost += 7.0
+        elif index_pct <= -0.3:
+            boost += 3.0
+    if severe is not None:
+        if severe >= 0.15:
+            boost += 10.0
+        elif severe >= 0.10:
+            boost += 5.0
+    return boost
+
+
+def _cap_signal_bonus(signals, cap):
+    total = sum(s["points"] for s in signals)
+    if total <= cap:
+        return round(total, 1)
+    kept, used = [], 0.0
+    for s in sorted(signals, key=lambda x: x["points"], reverse=True):
+        if used + s["points"] <= cap:
+            kept.append(s)
+            used += s["points"]
+    return round(used, 1)
+
+
+def _structure_from_dimensions(dimensions):
+    """基础维度 → 结构拥挤分（0–40 量级）。"""
+    struct = (
+        dimensions["concentration"]["score"] * 0.5
+        + dimensions["industry"]["score"] * 0.5
+        + dimensions["margin"]["score"] * 0.5
+    )
+    sent = dimensions["sentiment"]["score"]
+    if sent > 10:
+        struct += min((sent - 10) * 0.5, 5.0)
+    else:
+        struct += sent * 0.15
+    return struct
+
+
+def _breakdown_from_dimensions(dimensions):
+    return float(dimensions["market_stress"]["score"])
+
+
+def _dual_total(structure_score, breakdown_score, bull_trend):
+    raw = structure_score + breakdown_score
+    if not bull_trend:
+        return round(min(raw, 100), 1)
+    if breakdown_score < 20:
+        return round(min(raw, 55), 1)
+    if breakdown_score < 28:
+        return round(min(raw, 50 + breakdown_score * 0.45), 1)
+    return round(min(raw, 100), 1)
 
 
 def _index_distance_from_high(trade_date_str, window=250):
@@ -722,16 +839,19 @@ def _score_accumulation_risk(trade_date_str):
 
 
 # -------------------------------------------------------
-# 硬触发（顶部减仓底线分，指数上涨时也生效）
+# 硬触发（结构/破位分轨底线）
 # -------------------------------------------------------
-def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
+def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score, bull_trend=False):
     triggers = []
     if PRO is None:
-        return triggers, 0.0
+        return triggers, 0.0, 0.0
 
     dist60 = _index_distance_from_high(trade_date_str, 60)
     dist250 = _index_distance_from_high(trade_date_str, 250)
     up = _up_ratio(trade_date_str)
+    index_pct = _index_pct_chg(trade_date_str)
+    stats = _get_daily_stats(trade_date_str)
+    severe_ratio = stats.get("severe_ratio") if stats else None
     days5 = _trade_dates_upto(trade_date_str, 5)
     days20 = _trade_dates_upto(trade_date_str, 20)
     avg5 = _avg_up_ratio(days5) if len(days5) == 5 else None
@@ -742,6 +862,21 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
 
     near60 = dist60 is not None and dist60 >= -1.5
     near250 = dist250 is not None and dist250 >= -3
+    breakdown_confirmed = (
+        (index_pct is not None and index_pct < -0.3)
+        or (
+            severe_ratio is not None
+            and severe_ratio >= 0.08
+            and index_pct is not None
+            and index_pct < 0.15
+        )
+        or (
+            up is not None
+            and up < 0.32
+            and index_pct is not None
+            and index_pct < -0.1
+        )
+    )
 
     # 顶背离：新高区域 + 参与面收窄
     if (
@@ -754,6 +889,7 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
         triggers.append(
             {
                 "id": "top_divergence",
+                "track": "structure",
                 "label": "高位顶背离",
                 "floor": 58.0,
                 "detail": "指数高位但上涨家数趋势收窄",
@@ -769,6 +905,7 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
             triggers.append(
                 {
                     "id": "crowding_at_high",
+                    "track": "structure",
                     "label": "高位拥挤",
                     "floor": 62.0,
                     "detail": f"近一年高位区，成交集中度 {conc_ratio*100:.1f}%",
@@ -783,6 +920,7 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
             triggers.append(
                 {
                     "id": "leverage_blowoff",
+                    "track": "breakdown",
                     "label": "杠杆冲刺",
                     "floor": 68.0,
                     "detail": f"融资占比20日升 {(m1-m0)/m0*100:.1f}%",
@@ -796,6 +934,7 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
             triggers.append(
                 {
                     "id": "euphoria_top",
+                    "track": "structure",
                     "label": "亢奋见顶",
                     "floor": 60.0,
                     "detail": f"高位区情绪 {sentiment_score:+.2f} 偏亢奋",
@@ -812,26 +951,51 @@ def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
         triggers.append(
             {
                 "id": "background_risk",
+                "track": "structure",
                 "label": "顶部背景风险",
                 "floor": 60.0,
                 "detail": "高位区多维度风险共振",
             }
         )
 
-    core_count = len(triggers)
-    if core_count >= 2:
+    core_struct = [t for t in triggers if t.get("track") == "structure"]
+    core_break = [t for t in triggers if t.get("track") == "breakdown"]
+    core_count = len(core_struct) + len(core_break)
+    if core_count >= 2 and (breakdown_confirmed or not bull_trend):
         max_floor = max(t["floor"] for t in triggers)
         triggers.append(
             {
                 "id": "extreme_combo",
+                "track": "breakdown" if breakdown_confirmed else "structure",
                 "label": "复合极端",
                 "floor": min(max(max_floor, 72.0), 85.0),
                 "detail": f"{core_count}项顶部信号共振",
             }
         )
+    elif core_count >= 2 and bull_trend:
+        triggers.append(
+            {
+                "id": "extreme_combo",
+                "track": "structure",
+                "label": "结构共振",
+                "floor": 48.0,
+                "detail": f"{core_count}项拥挤信号共振（主升趋势，观察为主）",
+            }
+        )
 
-    floor_score = max((t["floor"] for t in triggers), default=0.0)
-    return triggers, floor_score
+    structure_floor = 0.0
+    breakdown_floor = 0.0
+    for t in triggers:
+        f = t["floor"]
+        if t.get("track") == "breakdown":
+            breakdown_floor = max(breakdown_floor, f * 0.45)
+        else:
+            structure_floor = max(structure_floor, f * 0.5)
+
+    structure_floor = min(structure_floor, 50.0)
+    breakdown_floor = min(breakdown_floor, 50.0)
+    floor_score = round(structure_floor + breakdown_floor, 1)
+    return triggers, floor_score, structure_floor, breakdown_floor
 
 
 # -------------------------------------------------------
@@ -859,14 +1023,20 @@ def _score_sentiment(sentiment_score):
 # -------------------------------------------------------
 # 综合评分 & 风险等级
 # -------------------------------------------------------
-def risk_level(total_score):
-    if total_score >= 75:
-        return "⛔ 极端", "历史级顶部风险，建议大幅减仓/对冲"
-    if total_score >= 60:
-        return "🔴 紧急", "顶部信号明确，建议尽快减仓"
-    if total_score >= 45:
-        return "🟡 预警", "逐步收紧仓位，收紧止盈"
-    if total_score >= 30:
+def risk_level(structure_score, breakdown_score, total_score):
+    """等级由破位分主导，结构分高仅预警。"""
+    if breakdown_score >= 35 or (total_score >= 72 and breakdown_score >= 25):
+        return "⛔ 极端", "破位风险极高，建议大幅减仓/对冲"
+    if breakdown_score >= 22 or (total_score >= 58 and breakdown_score >= 15):
+        return "🔴 紧急", "市场出现扩散性走弱，建议尽快减仓"
+    if structure_score >= 30 or total_score >= 42:
+        if breakdown_score < 15 and structure_score >= 30:
+            return (
+                "🟡 预警",
+                "结构拥挤偏高，主升趋势中观察为主，不宜追高",
+            )
+        return "🟡 预警", "风险升高，逐步收紧仓位、收紧止盈"
+    if total_score >= 28:
         return "🟢 中性", "正常持仓，密切关注"
     return "🟢 安全", "市场健康，可正常操作"
 
@@ -963,19 +1133,42 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     signals, momentum_bonus = _score_momentum_signals(trade_date_str, s3)
     accum_signals, accum_bonus = _score_accumulation_risk(trade_date_str)
     all_signals = signals + accum_signals
-    hard_triggers, floor_score = _evaluate_hard_triggers(
-        trade_date_str, dimensions, sentiment_score
+    bull_trend = _is_bull_trend(trade_date_str)
+    hard_triggers, floor_score, structure_floor, breakdown_floor = _evaluate_hard_triggers(
+        trade_date_str, dimensions, sentiment_score, bull_trend=bull_trend
     )
 
-    snapshot_score = round(min(base_score + momentum_bonus + accum_bonus, 100), 1)
-    total_score = round(min(max(snapshot_score, floor_score), 100), 1)
+    struct_mom_signals, break_mom_signals = _split_signals(signals, trade_date_str)
+    struct_accum_signals, _ = _split_signals(accum_signals, trade_date_str)
+    struct_mom = _cap_signal_bonus(struct_mom_signals, 10.0)
+    break_mom = _cap_signal_bonus(break_mom_signals, 15.0)
+    struct_accum = _cap_signal_bonus(struct_accum_signals, 10.0)
 
-    level, advice = risk_level(total_score)
+    structure_raw = (
+        _structure_from_dimensions(dimensions) + struct_mom + struct_accum
+    )
+    breakdown_raw = (
+        _breakdown_from_dimensions(dimensions)
+        + break_mom
+        + _breakdown_index_boost(trade_date_str)
+    )
+
+    structure_score = round(min(max(structure_raw, structure_floor), 50), 1)
+    breakdown_score = round(min(max(breakdown_raw, breakdown_floor), 50), 1)
+    total_score = _dual_total(structure_score, breakdown_score, bull_trend)
+
+    snapshot_score = round(min(base_score + momentum_bonus + accum_bonus, 100), 1)
+    level, advice = risk_level(structure_score, breakdown_score, total_score)
 
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
     print(
-        f"    基础 {base_score} + 变动 {momentum_bonus} + 累积 {accum_bonus}"
+        f"    结构拥挤 {structure_score} + 破位风险 {breakdown_score}"
+        + (" | 多头趋势熔断" if bull_trend else "")
+    )
+    print(
+        f"    (旧口径参考: 基础 {base_score} + 变动 {momentum_bonus} + 累积 {accum_bonus}"
         + (f" | 硬触发底线 {floor_score}" if floor_score else "")
+        + ")"
     )
     for sig in all_signals:
         print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
@@ -985,10 +1178,15 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
 
     return {
         "total_score": total_score,
+        "structure_score": structure_score,
+        "breakdown_score": breakdown_score,
+        "bull_trend": bull_trend,
         "base_score": base_score,
         "momentum_bonus": momentum_bonus,
         "accumulation_bonus": accum_bonus,
         "floor_score": floor_score,
+        "structure_floor": structure_floor,
+        "breakdown_floor": breakdown_floor,
         "snapshot_score": snapshot_score,
         "signals": all_signals,
         "hard_triggers": hard_triggers,
