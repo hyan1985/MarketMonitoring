@@ -6,6 +6,15 @@ on:
     # 抓取前一自然日全天帖子，TuShare 取该日或之前最近已入库交易日行情
     - cron: "30 16 * * *"
   workflow_dispatch:
+    inputs:
+      target_day:
+        description: 分析哪一天（北京时间）
+        required: true
+        default: today
+        type: choice
+        options:
+          - today
+          - yesterday
 
 permissions:
   contents: write
@@ -34,7 +43,14 @@ jobs:
         env:
           TZ: Asia/Shanghai
           TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
-        run: python main.py --yesterday --no-browser
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DAY="${{ inputs.target_day }}"
+          else
+            DAY="yesterday"
+          fi
+          echo "Running: python main.py --${DAY} --no-browser"
+          python main.py "--${DAY}" --no-browser
 
       - name: Commit results
         env:

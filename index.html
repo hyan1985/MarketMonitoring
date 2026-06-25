@@ -284,24 +284,39 @@
                     <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 大盘风险值预估
                 </h3>
                 <div class="text-center mb-4">
-                    <span class="text-4xl sm:text-5xl font-extrabold font-outfit text-white" id="risk-total">90.2</span>
+                    <span class="text-4xl sm:text-5xl font-extrabold font-outfit text-white" id="risk-total">51.8</span>
                     <span class="text-gray-500 text-sm ml-1">/ 100</span>
                 </div>
                 <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
                     <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
-                         style="width:90.2%;
-                                background:#7f1d1d;">
+                         style="width:51.8%;
+                                background:#f59e0b;">
                     </div>
                 </div>
                 <div class="text-center mb-4">
                     <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
-                          style="background:#7f1d1d55;
-                                 color:#fecaca;">
-                        ⛔ 极端
+                          style="background:#f59e0b33;
+                                 color:#fde68a;">
+                        🟡 预警
                     </span>
                 </div>
-                <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">历史级顶部风险，建议大幅减仓/对冲</p>
-                <p class="text-[10px] text-gray-500 text-center mb-1">基础 66.2 + 变动 15.0 + 累积 9.0 | 硬触发底线 72.0</p>
+                <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">结构拥挤偏高，主升趋势中观察为主，不宜追高</p>
+                
+                <div class="grid grid-cols-2 gap-2 mb-2 text-center">
+                    <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <span class="text-[10px] text-amber-400/80 block">结构拥挤</span>
+                        <span class="text-lg font-bold font-mono text-amber-300">42.3</span>
+                        <span class="text-[10px] text-gray-500">/50</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <span class="text-[10px] text-red-400/80 block">破位风险</span>
+                        <span class="text-lg font-bold font-mono text-red-300">9.5</span>
+                        <span class="text-[10px] text-gray-500">/50</span>
+                    </div>
+                </div>
+                <p class="text-[10px] text-teal-500/80 text-center mb-1">主升趋势 · 总分熔断生效</p>
+                <p class="text-[10px] text-gray-500 text-center mb-1">结构 42.3 + 破位 9.5 = 51.8</p>
+                <p class="text-[10px] text-gray-500 text-center mb-1">基础 66.2 + 变动 15.0 + 累积 9.0 | 硬触发底线 31.0</p>
                 <p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 2026-06-25（北京时间）</p>
                 <!-- 资金集中度 → 大号突出 -->
                 <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
@@ -403,8 +418,8 @@
                             <p class="text-[10px] text-gray-600 leading-snug mb-1">近一年高位区，成交集中度 53.1%</p>
                                                 <div class="text-[11px] text-red-300/90">🚨 顶部背景风险 <span class="font-mono text-red-400">≥60</span></div>
                             <p class="text-[10px] text-gray-600 leading-snug mb-1">高位区多维度风险共振</p>
-                                                <div class="text-[11px] text-red-300/90">🚨 复合极端 <span class="font-mono text-red-400">≥72</span></div>
-                            <p class="text-[10px] text-gray-600 leading-snug mb-1">2项顶部信号共振</p>
+                                                <div class="text-[11px] text-red-300/90">🚨 结构共振 <span class="font-mono text-red-400">≥48</span></div>
+                            <p class="text-[10px] text-gray-600 leading-snug mb-1">2项拥挤信号共振（主升趋势，观察为主）</p>
                                             </div>
                     </div>
                                     </div>

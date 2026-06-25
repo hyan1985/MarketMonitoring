@@ -109664,11 +109664,16 @@
     }
   ],
   "risk": {
-    "total_score": 90.2,
+    "total_score": 51.8,
+    "structure_score": 42.3,
+    "breakdown_score": 9.5,
+    "bull_trend": true,
     "base_score": 66.2,
     "momentum_bonus": 15.0,
     "accumulation_bonus": 9.0,
-    "floor_score": 72.0,
+    "floor_score": 31.0,
+    "structure_floor": 31.0,
+    "breakdown_floor": 0.0,
     "snapshot_score": 90.2,
     "signals": [
       {
@@ -109705,25 +109710,28 @@
     "hard_triggers": [
       {
         "id": "crowding_at_high",
+        "track": "structure",
         "label": "高位拥挤",
         "floor": 62.0,
         "detail": "近一年高位区，成交集中度 53.1%"
       },
       {
         "id": "background_risk",
+        "track": "structure",
         "label": "顶部背景风险",
         "floor": 60.0,
         "detail": "高位区多维度风险共振"
       },
       {
         "id": "extreme_combo",
-        "label": "复合极端",
-        "floor": 72.0,
-        "detail": "2项顶部信号共振"
+        "track": "structure",
+        "label": "结构共振",
+        "floor": 48.0,
+        "detail": "2项拥挤信号共振（主升趋势，观察为主）"
       }
     ],
-    "level": "⛔ 极端",
-    "advice": "历史级顶部风险，建议大幅减仓/对冲",
+    "level": "🟡 预警",
+    "advice": "结构拥挤偏高，主升趋势中观察为主，不宜追高",
     "trade_date": "2026-06-25",
     "dimensions": {
       "concentration": {

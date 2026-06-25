@@ -97,7 +97,7 @@ def main():
     print_step("步骤 1: 加载系统配置及情绪词典")
     if not os.path.exists(config_path):
         print_error(f"配置文件 config.json 未在 {config_path} 找到。")
-        return
+        sys.exit(1)
         
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -136,7 +136,7 @@ def main():
             print(f"  时间过滤 → 仅保留运行日 {run_date.strftime('%Y-%m-%d')} 的帖子")
     except Exception as e:
         print_error(f"读取配置文件失败: {e}")
-        return
+        sys.exit(1)
 
     # Step 2: Crawl all enabled forum sources
     print_step("步骤 2: 爬取多平台论坛实时讨论帖子")
@@ -183,7 +183,7 @@ def main():
 
     if not raw_posts:
         print_error("抓取失败，未获得任何平台的有效帖子。请检查网络或数据源配置。")
-        return
+        sys.exit(1)
 
     source_counts = {}
     for p in raw_posts:
@@ -210,7 +210,7 @@ def main():
                 f"当日 ({scan_date}) 无有效帖子。可能是非交易日、数据源时间字段异常，"
                 "或同花顺返回了历史归档帖。可暂时设置 filter_run_date_only: false 排查。"
             )
-            return
+            sys.exit(1)
 
     # Step 3: Run sentiment analyzer NLP engine
     print_step("步骤 3: 运行 NLP 情绪分析与指数算力引擎")
@@ -250,7 +250,7 @@ def main():
         print_error(f"运行情绪分析引擎失败: {e}")
         import traceback
         traceback.print_exc()
-        return
+        sys.exit(1)
 
     # Step 3.5: Compute market risk score via TuShare
     print_step("步骤 3.5: 计算大盘综合风险值 (TuShare 多维数据)")
@@ -306,10 +306,10 @@ def main():
             print_success(f"美化版可视化网页构建成功：{html_path}")
         else:
             print_error("构建 Dashboard HTML 失败。")
-            return
+            sys.exit(1)
     except Exception as e:
         print_error(f"构建网页可视化文件失败: {e}")
-        return
+        sys.exit(1)
 
     # Step 5: Automatically open dashboard in browser
     if args.no_browser:
