@@ -265,6 +265,18 @@ def main():
         print(f"  - 综合风险分 (Risk Score): {Colors.OKCYAN}{risk_data['total_score']}{Colors.ENDC}  [0-100]")
         print(f"  - 风险等级: {risk_data['level']}")
         print(f"  - 策略建议: {risk_data['advice']}")
+        if risk_data.get("momentum_bonus") or risk_data.get("accumulation_bonus"):
+            print(
+                f"  - 加成: 变动 +{risk_data.get('momentum_bonus', 0)} "
+                f"累积 +{risk_data.get('accumulation_bonus', 0)}"
+                f" (基础分 {risk_data.get('base_score')})"
+            )
+        if risk_data.get("floor_score"):
+            print(f"  - 硬触发底线: {risk_data['floor_score']}")
+        for sig in risk_data.get("signals", []):
+            print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
+        for trig in risk_data.get("hard_triggers", []):
+            print(f"    🚨 {trig['label']} → 底线 {trig['floor']} | {trig['detail']}")
         for key, dim in risk_data["dimensions"].items():
             bar = "█" * int(dim["score"]) + "░" * (20 - int(dim["score"]))
             print(f"    {dim['label']}: [{bar}] {dim['score']}分  |  {dim['detail']}")

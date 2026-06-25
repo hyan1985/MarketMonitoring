@@ -400,17 +400,18 @@ class DashboardGenerator:
                 <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
                     <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
                          style="width:{risk["total_score"]}%;
-                                background:{f"#ef4444" if risk["total_score"] >= 70 else "#f59e0b" if risk["total_score"] >= 50 else "#10b981" if risk["total_score"] >= 30 else "#6ee7b7"};">
+                                background:{f"#7f1d1d" if risk["total_score"] >= 75 else "#ef4444" if risk["total_score"] >= 60 else "#f59e0b" if risk["total_score"] >= 45 else "#10b981" if risk["total_score"] >= 30 else "#6ee7b7"};">
                     </div>
                 </div>
                 <div class="text-center mb-4">
                     <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
-                          style="background:{f"#ef444433" if risk["total_score"] >= 70 else "#f59e0b33" if risk["total_score"] >= 50 else "#10b98133" if risk["total_score"] >= 30 else "#6ee7b733"};
-                                 color:{f"#fca5a5" if risk["total_score"] >= 70 else "#fde68a" if risk["total_score"] >= 50 else "#6ee7b7" if risk["total_score"] >= 30 else "#a7f3d0"};">
+                          style="background:{f"#7f1d1d55" if risk["total_score"] >= 75 else "#ef444433" if risk["total_score"] >= 60 else "#f59e0b33" if risk["total_score"] >= 45 else "#10b98133" if risk["total_score"] >= 30 else "#6ee7b733"};
+                                 color:{f"#fecaca" if risk["total_score"] >= 75 else "#fca5a5" if risk["total_score"] >= 60 else "#fde68a" if risk["total_score"] >= 45 else "#6ee7b7" if risk["total_score"] >= 30 else "#a7f3d0"};">
                         {risk["level"]}
                     </span>
                 </div>
                 <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
+                {f'<p class="text-[10px] text-gray-500 text-center mb-1">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
                 {f'<p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
                 <!-- 资金集中度 → 大号突出 -->
                 <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
@@ -433,6 +434,35 @@ class DashboardGenerator:
                         </div>
                     </div>
                     ''' for d in risk["dimensions"].values()
+                    ) + (
+                    "".join(
+                        f'''                    <div class="mt-2 pt-2 border-t border-gray-800/80">
+                        <span class="text-[10px] text-rose-400/80 uppercase tracking-wider">变动信号</span>
+                        <div class="mt-1.5 space-y-1">
+                    ''' + "".join(
+                            f'''                            <div class="flex justify-between text-[11px] text-gray-400 gap-2">
+                                <span class="text-rose-300/90">⚡ {s["label"]}</span>
+                                <span class="font-mono text-rose-400 shrink-0">+{s["points"]}</span>
+                            </div>
+                            <p class="text-[10px] text-gray-600 leading-snug mb-1">{s["detail"]}</p>
+                    ''' for s in risk.get("signals", [])
+                        ) + '''                        </div>
+                    </div>
+                    '''
+                    ) if risk.get("signals") else ""
+                    ) + (
+                    "".join(
+                        f'''                    <div class="mt-2 pt-2 border-t border-red-900/40">
+                        <span class="text-[10px] text-red-400/90 uppercase tracking-wider">硬触发 · 减仓信号</span>
+                        <div class="mt-1.5 space-y-1">
+                    ''' + "".join(
+                            f'''                            <div class="text-[11px] text-red-300/90">🚨 {t["label"]} <span class="font-mono text-red-400">≥{t["floor"]:.0f}</span></div>
+                            <p class="text-[10px] text-gray-600 leading-snug mb-1">{t["detail"]}</p>
+                    ''' for t in risk.get("hard_triggers", []) if t.get("id") != "extreme_combo" or len(risk.get("hard_triggers", [])) >= 3
+                        ) + '''                        </div>
+                    </div>
+                    '''
+                    ) if risk.get("hard_triggers") else ""
                     ) + '''                </div>
             </div>
             ''' if risk else '''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl text-center lg:col-span-1 lg:h-full">

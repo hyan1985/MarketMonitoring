@@ -6,8 +6,11 @@
 1. 资金集中度 — 前5%个股成交额/全市场成交额
 2. 融资占比 — 融资余额/总市值
 3. 行业集中度 — 通信+电子成交额/全市场
-4. 市场宽度 — 上涨家数占比
+4. 恐慌扩散 — 大跌家数占比（结构性行情下比单纯宽度更能反映抛压）
 5. 情绪分 — 论坛情绪反向映射（太乐观→高风险）
+
+另：变动性信号（最多 +15 分）+ 累积风险（最多 +18 分）+ 硬触发底线分，
+用于在指数仍上涨时识别顶部累积风险与紧急减仓情形。
 """
 
 import os
@@ -27,6 +30,12 @@ else:
 
 # 行业缓存（首次加载后不会重复请求）
 _INDUSTRY_MAP = None
+_CONC_CACHE = {}
+_MARGIN_CACHE = {}
+_DAILY_STATS_CACHE = {}
+_INDEX_PCT_CACHE = {}
+_INDEX_BARS_CACHE = {}
+_TRADE_CAL_CACHE = {}
 
 
 def _load_industry_map():
@@ -93,6 +102,243 @@ def _last_trade_date(target_date=None, require_data=False):
     return target
 
 
+def _trade_dates_upto(trade_date_str, count):
+    """含当日在内，向前取 count 个交易日（升序）。"""
+    if PRO is None:
+        return []
+    cache_key = (trade_date_str, count)
+    if cache_key in _TRADE_CAL_CACHE:
+        return _TRADE_CAL_CACHE[cache_key]
+    target = datetime.strptime(trade_date_str, "%Y%m%d").date()
+    start = (target - timedelta(days=count * 3 + 14)).strftime("%Y%m%d")
+    try:
+        cal = PRO.trade_cal(
+            exchange="SSE", start_date=start, end_date=trade_date_str, is_open="1"
+        )
+        days = sorted(cal["cal_date"].tolist())
+    except Exception:
+        return []
+    if trade_date_str not in days:
+        days = [d for d in days if d <= trade_date_str]
+    result = days[-count:]
+    _TRADE_CAL_CACHE[cache_key] = result
+    return result
+
+
+def _tech_codes():
+    industry_map = _load_industry_map()
+    return {
+        code
+        for code, ind in industry_map.items()
+        if ind in ("通信设备", "通信服务", "电子元器件", "半导体", "元器件")
+    }
+
+
+def _get_daily_stats(trade_date_str):
+    """
+    单日全市场行情统计（一次 daily 请求，多处复用）。
+    返回 dict: up_ratio, severe_ratio, concentration_ratio, industry_ratio
+    """
+    if trade_date_str in _DAILY_STATS_CACHE:
+        return _DAILY_STATS_CACHE[trade_date_str]
+    if PRO is None:
+        return None
+    try:
+        df = PRO.daily(
+            trade_date=trade_date_str, fields="ts_code,pct_chg,amount"
+        )
+    except Exception:
+        return None
+    if df.empty:
+        return None
+
+    total = len(df)
+    up_ratio = float(len(df[df["pct_chg"] > 0]) / total) if total else None
+    severe_ratio = (
+        float(len(df[df["pct_chg"] <= -5]) / total) if total else None
+    )
+
+    conc_ratio = None
+    ind_ratio = None
+    df_amt = df.dropna(subset=["amount"])
+    total_amount = df_amt["amount"].sum()
+    if total_amount > 0:
+        sorted_df = df_amt.sort_values("amount", ascending=False)
+        top_n = max(1, int(len(sorted_df) * 0.05))
+        conc_ratio = float(
+            sorted_df["amount"].iloc[:top_n].sum() / total_amount
+        )
+        tech = _tech_codes()
+        ind_ratio = float(
+            df_amt[df_amt["ts_code"].isin(tech)]["amount"].sum() / total_amount
+        )
+
+    stats = {
+        "up_ratio": up_ratio,
+        "severe_ratio": severe_ratio,
+        "concentration_ratio": conc_ratio,
+        "industry_ratio": ind_ratio,
+    }
+    _DAILY_STATS_CACHE[trade_date_str] = stats
+    if conc_ratio is not None:
+        _CONC_CACHE[trade_date_str] = conc_ratio
+    return stats
+
+
+def warm_market_cache(trade_dates, throttle_sec=0.13):
+    """
+    批量预热行情缓存，避免回测时触发 TuShare 频率限制。
+    throttle_sec≈0.13 → 约 460 次/分钟上限。
+    """
+    import time
+
+    warmed = 0
+    for d in sorted(set(trade_dates)):
+        if d in _DAILY_STATS_CACHE:
+            continue
+        _get_daily_stats(d)
+        warmed += 1
+        if throttle_sec > 0:
+            time.sleep(throttle_sec)
+    return warmed
+
+
+def cache_stats():
+    """返回当前缓存规模（调试用）。"""
+    return {
+        "daily": len(_DAILY_STATS_CACHE),
+        "concentration": len(_CONC_CACHE),
+        "margin": len(_MARGIN_CACHE),
+        "index_bars": len(_INDEX_BARS_CACHE),
+        "trade_cal": len(_TRADE_CAL_CACHE),
+    }
+
+
+def _index_pct_chg(trade_date_str):
+    if PRO is None:
+        return None
+    if trade_date_str in _INDEX_PCT_CACHE:
+        return _INDEX_PCT_CACHE[trade_date_str]
+    try:
+        df = PRO.index_daily(
+            ts_code="000001.SH", trade_date=trade_date_str, fields="pct_chg"
+        )
+        if df.empty:
+            return None
+        val = float(df.iloc[0]["pct_chg"])
+        _INDEX_PCT_CACHE[trade_date_str] = val
+        return val
+    except Exception:
+        return None
+
+
+def _index_bars_upto(trade_date_str, window=250):
+    """缓存：截至 trade_date_str 的指数收盘价序列。"""
+    key = (trade_date_str, window)
+    if key in _INDEX_BARS_CACHE:
+        return _INDEX_BARS_CACHE[key]
+    if PRO is None:
+        return None
+    target = datetime.strptime(trade_date_str, "%Y%m%d").date()
+    start = (target - timedelta(days=window * 2)).strftime("%Y%m%d")
+    try:
+        df = PRO.index_daily(
+            ts_code="000001.SH",
+            start_date=start,
+            end_date=trade_date_str,
+            fields="trade_date,close,pct_chg",
+        )
+    except Exception:
+        return None
+    if df.empty:
+        return None
+    bars = df.sort_values("trade_date").tail(window)
+    _INDEX_BARS_CACHE[key] = bars
+    for _, row in bars.iterrows():
+        d = row["trade_date"]
+        if d not in _INDEX_PCT_CACHE and row.get("pct_chg") is not None:
+            _INDEX_PCT_CACHE[d] = float(row["pct_chg"])
+    return bars
+
+
+def _concentration_ratio(trade_date_str):
+    if trade_date_str in _CONC_CACHE:
+        return _CONC_CACHE[trade_date_str]
+    stats = _get_daily_stats(trade_date_str)
+    if not stats:
+        return None
+    return stats.get("concentration_ratio")
+
+
+def _sampled_concentration_history(trade_date_str, window=60, step=5):
+    days = _trade_dates_upto(trade_date_str, window)
+    if not days:
+        return []
+    return [_concentration_ratio(days[i]) for i in range(0, len(days), step)]
+
+
+def _industry_ratio(trade_date_str):
+    stats = _get_daily_stats(trade_date_str)
+    if not stats:
+        return None
+    return stats.get("industry_ratio")
+
+
+def _up_ratio(trade_date_str):
+    stats = _get_daily_stats(trade_date_str)
+    if not stats:
+        return None
+    return stats.get("up_ratio")
+
+
+def _margin_ratio_raw(trade_date_str):
+    if PRO is None:
+        return None
+    if trade_date_str in _MARGIN_CACHE:
+        return _MARGIN_CACHE[trade_date_str]
+    try:
+        mg = PRO.margin(trade_date=trade_date_str, fields="exchange_id,rzye")
+        db = PRO.daily_basic(trade_date=trade_date_str, fields="ts_code,total_mv")
+    except Exception:
+        return None
+    if mg is None or mg.empty or db is None or db.empty:
+        return None
+    total_mv = db["total_mv"].sum() * 10000
+    if total_mv == 0:
+        return None
+    ratio = float(mg["rzye"].sum() / total_mv)
+    _MARGIN_CACHE[trade_date_str] = ratio
+    return ratio
+
+
+def _index_distance_from_high(trade_date_str, window=250):
+    """距 window 日高点百分比，0 表示在高点，-5 表示低 5%。"""
+    bars = _index_bars_upto(trade_date_str, window)
+    if bars is None or bars.empty:
+        return None
+    high = float(bars["close"].max())
+    current = float(bars.iloc[-1]["close"])
+    if high == 0:
+        return None
+    return (current / high - 1) * 100
+
+
+def _percentile_rank(value, series):
+    valid = [v for v in series if v is not None]
+    if not valid or value is None:
+        return None
+    below = sum(1 for v in valid if v <= value)
+    return below / len(valid)
+
+
+def _avg_up_ratio(days):
+    vals = [_up_ratio(d) for d in days]
+    vals = [v for v in vals if v is not None]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
 # -------------------------------------------------------
 # 维度 1：资金集中度（前 5% 个股成交额占全市场比）
 # -------------------------------------------------------
@@ -103,19 +349,9 @@ def _score_concentration(trade_date_str):
     """
     if PRO is None:
         return 10, None
-    df = PRO.daily(trade_date=trade_date_str, fields="ts_code,amount")
-    if df.empty:
-        return 10, None  # 无数据，不显示 0%
-
-    df = df.dropna(subset=["amount"])
-    total_amount = df["amount"].sum()
-    if total_amount == 0:
+    ratio = _concentration_ratio(trade_date_str)
+    if ratio is None:
         return 10, None
-
-    df_sorted = df.sort_values("amount", ascending=False)
-    top_n = max(1, int(len(df_sorted) * 0.05))
-    top_amount = df_sorted["amount"].iloc[:top_n].sum()
-    ratio = top_amount / total_amount  # 0-1
 
     # 映射：50% → 10分, 52.1%(历史极值) → 20分, 45%以下 → 0分
     if ratio <= 0.45:
@@ -176,25 +412,11 @@ def _score_industry_concentration(trade_date_str):
     TuShare: daily + stock_basic.industry
     筛选通信、电子行业，计算其成交额占比
     """
-    df = PRO.daily(trade_date=trade_date_str, fields="ts_code,amount")
-    if df.empty:
+    if PRO is None:
         return 10, None
-
-    industry_map = _load_industry_map()
-    tech_codes = {
-        code
-        for code, ind in industry_map.items()
-        if ind in ("通信设备", "通信服务", "电子元器件", "半导体", "元器件")
-    }
-
-    df_tech = df[df["ts_code"].isin(tech_codes)]
-    total_amount = df["amount"].sum()
-    tech_amount = df_tech["amount"].sum()
-
-    if total_amount == 0:
+    ratio = _industry_ratio(trade_date_str)
+    if ratio is None:
         return 10, None
-
-    ratio = tech_amount / total_amount
 
     # 映射：15% → 5分(历史均值), 40% → 15分(当前), 50% → 20分
     if ratio <= 0.15:
@@ -207,34 +429,409 @@ def _score_industry_concentration(trade_date_str):
     return round(score, 1), round(ratio * 100, 2)
 
 
+def _breadth_risk_score(up_ratio):
+    """由上涨家数占比映射风险分（仅用于指数走弱时的同步杀跌）。"""
+    if up_ratio >= 0.70:
+        return 0.0
+    if up_ratio >= 0.50:
+        return 5 * (0.70 - up_ratio) / 0.20
+    if up_ratio >= 0.25:
+        return 5 + (0.50 - up_ratio) / 0.25 * 10
+    return min(15 + (0.25 - up_ratio) / 0.25 * 5, 20)
+
+
+def _severe_drop_score(severe_ratio):
+    """跌幅≥5%个股占比 → 风险分。"""
+    if severe_ratio <= 0.03:
+        return 0.0
+    if severe_ratio >= 0.15:
+        return 20.0
+    return (severe_ratio - 0.03) / (0.15 - 0.03) * 20
+
+
 # -------------------------------------------------------
-# 维度 4：市场宽度（上涨家数占比）
+# 维度 4：恐慌扩散（大跌家数占比 + 指数走弱时的宽度修正）
 # -------------------------------------------------------
-def _score_breadth(trade_date_str):
+def _score_market_stress(trade_date_str):
     """
-    TuShare: daily.pct_chg
-    统计全市场上涨家数 / 总家数，比值越低 → 市场越弱 → 风险越高
+    主指标：全市场跌幅≥5%个股占比。
+    辅修正：指数收跌且上涨家数<40%时，叠加宽度惩罚（双杀日）。
     """
-    df = PRO.daily(trade_date=trade_date_str, fields="ts_code,pct_chg")
-    if df.empty:
+    if PRO is None:
         return 10, None
 
-    total = len(df)
-    up = len(df[df["pct_chg"] > 0])
-    ratio = up / total if total > 0 else 0.5
+    stats = _get_daily_stats(trade_date_str)
+    if not stats:
+        return 10, None
 
-    # 映射：上涨>70% → 0分, 50% → 5分, 25% → 15分, <15% → 20分
-    if ratio >= 0.70:
-        score = 0
-    elif ratio >= 0.50:
-        score = 5 * (0.70 - ratio) / 0.20
-    elif ratio >= 0.25:
-        score = 5 + (0.50 - ratio) / 0.25 * 10
-    else:
-        score = 15 + (0.25 - ratio) / 0.25 * 5
-        score = min(score, 20)
+    up_ratio = stats.get("up_ratio")
+    severe_ratio = stats.get("severe_ratio")
+    if up_ratio is None or severe_ratio is None:
+        return 10, None
 
-    return round(score, 1), round(ratio * 100, 2)
+    severe_score = _severe_drop_score(severe_ratio)
+
+    index_pct = _index_pct_chg(trade_date_str)
+    sync_score = 0.0
+    if index_pct is not None and index_pct < -0.3 and up_ratio < 0.40:
+        sync_score = _breadth_risk_score(up_ratio)
+
+    score = max(severe_score, sync_score)
+    return round(score, 1), round(severe_ratio * 100, 2)
+
+
+# -------------------------------------------------------
+# 变动性信号（连续恶化 / 结构背离，最多 +15 分）
+# -------------------------------------------------------
+def _is_strictly_rising(values):
+    return len(values) >= 2 and all(
+        values[i] < values[i + 1] for i in range(len(values) - 1)
+    )
+
+
+def _score_momentum_signals(trade_date_str, industry_score):
+    """
+    捕捉「水平不高但趋势恶化」的风险，比单日静态值更有领先性。
+    """
+    signals = []
+    if PRO is None:
+        return signals, 0.0
+
+    days4 = _trade_dates_upto(trade_date_str, 4)
+    days5 = _trade_dates_upto(trade_date_str, 5)
+
+    # 1. 资金集中度连续 3 日上升（5 日则加重）
+    if len(days4) == 4:
+        conc = [_concentration_ratio(d) for d in days4]
+        if all(v is not None for v in conc) and _is_strictly_rising(conc):
+            pts = 5.0
+            if len(days5) == 5:
+                conc5 = [_concentration_ratio(d) for d in days5]
+                if all(v is not None for v in conc5) and _is_strictly_rising(conc5):
+                    pts = 7.0
+            signals.append(
+                {
+                    "id": "conc_rising_3d",
+                    "label": "资金集中度连升",
+                    "points": pts,
+                    "detail": (
+                        f"前5%成交占比 {conc[0]*100:.2f}%→{conc[-1]*100:.2f}%"
+                        f"（连续{len(conc)-1}日上升）"
+                    ),
+                }
+            )
+
+    # 2. 科技成交占比连续 3 日上升（结构性抱团加剧）
+    if len(days4) == 4:
+        tech = [_industry_ratio(d) for d in days4]
+        if all(v is not None for v in tech) and _is_strictly_rising(tech):
+            signals.append(
+                {
+                    "id": "tech_rising_3d",
+                    "label": "科技成交连升",
+                    "points": 4.0,
+                    "detail": (
+                        f"通信+电子成交 {tech[0]*100:.1f}%→{tech[-1]*100:.1f}%"
+                        f"（连续3日上升）"
+                    ),
+                }
+            )
+
+    # 3. 结构背离：指数收涨 + 上涨家数偏少 + 科技成交偏高
+    up_ratio = _up_ratio(trade_date_str)
+    index_pct = _index_pct_chg(trade_date_str)
+    if (
+        index_pct is not None
+        and index_pct >= 0
+        and up_ratio is not None
+        and up_ratio < 0.35
+        and industry_score >= 11
+    ):
+        signals.append(
+            {
+                "id": "structural_divergence",
+                "label": "结构背离",
+                "points": 5.0,
+                "detail": (
+                    f"上证{index_pct:+.2f}%但上涨家数仅{up_ratio*100:.1f}%，"
+                    f"科技主线成交偏高"
+                ),
+            }
+        )
+
+    # 3b. 隐性走弱：指数平稳但大跌家数已扩散（3/2 型）
+    stats = _get_daily_stats(trade_date_str)
+    if stats and up_ratio is not None and index_pct is not None:
+        severe_ratio = stats.get("severe_ratio")
+        if (
+            severe_ratio is not None
+            and index_pct >= -0.1
+            and up_ratio < 0.32
+            and severe_ratio >= 0.05
+        ):
+            signals.append(
+                {
+                    "id": "hidden_weakness",
+                    "label": "隐性走弱",
+                    "points": 6.0,
+                    "detail": (
+                        f"上证{index_pct:+.2f}%但上涨仅{up_ratio*100:.1f}%、"
+                        f"大跌家数{severe_ratio*100:.1f}%"
+                    ),
+                }
+            )
+
+    # 4. 宽度骤降：3 个交易日内上涨家数占比下降 ≥12pp
+    if len(days4) == 4:
+        breadths = [_up_ratio(d) for d in days4]
+        if all(v is not None for v in breadths):
+            drop = breadths[0] - breadths[-1]
+            idx_vals = [_index_pct_chg(d) for d in days4]
+            idx_sum = sum(v for v in idx_vals if v is not None)
+            if drop >= 0.12 and idx_sum >= -0.5:
+                signals.append(
+                    {
+                        "id": "breadth_collapse_3d",
+                        "label": "宽度骤降",
+                        "points": 4.0,
+                        "detail": (
+                            f"上涨家数占比 {breadths[0]*100:.1f}%→{breadths[-1]*100:.1f}%"
+                            f"（3日降{drop*100:.1f}pp）"
+                        ),
+                    }
+                )
+
+    bonus = min(sum(s["points"] for s in signals), 15.0)
+    if bonus < sum(s["points"] for s in signals):
+        # 按 points 降序保留，使总和不超过 15
+        kept, used = [], 0.0
+        for s in sorted(signals, key=lambda x: x["points"], reverse=True):
+            if used + s["points"] <= 15.0:
+                kept.append(s)
+                used += s["points"]
+        signals = kept
+        bonus = used
+
+    return signals, round(bonus, 1)
+
+
+# -------------------------------------------------------
+# 累积风险（慢变量，最多 +18 分，不因单日反弹清零）
+# -------------------------------------------------------
+def _score_accumulation_risk(trade_date_str):
+    signals = []
+    if PRO is None:
+        return signals, 0.0
+
+    dist250 = _index_distance_from_high(trade_date_str, 250)
+    dist60 = _index_distance_from_high(trade_date_str, 60)
+    bonus = 0.0
+
+    if dist250 is not None:
+        if dist250 >= -2:
+            bonus += 6
+            signals.append(
+                {
+                    "id": "near_250d_high",
+                    "label": "近一年高位",
+                    "points": 6,
+                    "detail": f"距250日高点仅 {abs(dist250):.1f}%",
+                }
+            )
+        elif dist250 >= -5:
+            bonus += 4
+            signals.append(
+                {
+                    "id": "elevated_250d",
+                    "label": "一年高位区",
+                    "points": 4,
+                    "detail": f"距250日高点 {abs(dist250):.1f}%",
+                }
+            )
+
+    near_high = (dist250 is not None and dist250 >= -8) or (
+        dist60 is not None and dist60 >= -3
+    )
+    if not near_high:
+        return signals, round(min(bonus, 18.0), 1)
+
+    days5 = _trade_dates_upto(trade_date_str, 5)
+    days20 = _trade_dates_upto(trade_date_str, 20)
+
+    if len(days20) == 20:
+        concs = [_concentration_ratio(d) for d in days20]
+        valid = [c for c in concs if c is not None]
+        if valid:
+            avg_conc = sum(valid) / len(valid)
+            lookback = _sampled_concentration_history(trade_date_str, window=60, step=5)
+            pct = _percentile_rank(avg_conc, lookback)
+            if pct is not None and pct >= 0.75:
+                bonus += 5
+                signals.append(
+                    {
+                        "id": "conc_crowding",
+                        "label": "资金长期拥挤",
+                        "points": 5,
+                        "detail": f"20日均成交集中度 {avg_conc*100:.1f}%（近60日高位）",
+                    }
+                )
+
+    if len(days20) >= 2:
+        m0 = _margin_ratio_raw(days20[0])
+        m1 = _margin_ratio_raw(days20[-1])
+        if m0 and m1 and m0 > 0:
+            chg = (m1 - m0) / m0 * 100
+            if chg >= 8:
+                bonus += 6
+                signals.append(
+                    {
+                        "id": "margin_buildup",
+                        "label": "杠杆累积",
+                        "points": 6,
+                        "detail": f"融资占比20日升 {chg:.1f}%",
+                    }
+                )
+
+    if len(days5) == 5 and len(days20) == 20:
+        avg5 = _avg_up_ratio(days5)
+        avg20 = _avg_up_ratio(days20)
+        if avg5 is not None and avg20 is not None and avg5 < avg20 - 0.06:
+            bonus += 4
+            signals.append(
+                {
+                    "id": "breadth_narrowing",
+                    "label": "宽度持续收窄",
+                    "points": 4,
+                    "detail": (
+                        f"5日上涨占比 {avg5*100:.1f}% < 20日均 {avg20*100:.1f}%"
+                    ),
+                }
+            )
+
+    bonus = min(bonus, 18.0)
+    if bonus < sum(s["points"] for s in signals):
+        kept, used = [], 0.0
+        for s in sorted(signals, key=lambda x: x["points"], reverse=True):
+            if used + s["points"] <= 18.0:
+                kept.append(s)
+                used += s["points"]
+        signals = kept
+        bonus = used
+
+    return signals, round(bonus, 1)
+
+
+# -------------------------------------------------------
+# 硬触发（顶部减仓底线分，指数上涨时也生效）
+# -------------------------------------------------------
+def _evaluate_hard_triggers(trade_date_str, dimensions, sentiment_score):
+    triggers = []
+    if PRO is None:
+        return triggers, 0.0
+
+    dist60 = _index_distance_from_high(trade_date_str, 60)
+    dist250 = _index_distance_from_high(trade_date_str, 250)
+    up = _up_ratio(trade_date_str)
+    days5 = _trade_dates_upto(trade_date_str, 5)
+    days20 = _trade_dates_upto(trade_date_str, 20)
+    avg5 = _avg_up_ratio(days5) if len(days5) == 5 else None
+    avg20 = _avg_up_ratio(days20) if len(days20) == 20 else None
+
+    conc_val = dimensions.get("concentration", {}).get("value")
+    conc_ratio = conc_val / 100 if conc_val else _concentration_ratio(trade_date_str)
+
+    near60 = dist60 is not None and dist60 >= -1.5
+    near250 = dist250 is not None and dist250 >= -3
+
+    # 顶背离：新高区域 + 参与面收窄
+    if (
+        near60
+        and avg5 is not None
+        and avg20 is not None
+        and avg5 < avg20 - 0.05
+        and (up is None or up < 0.55)
+    ):
+        triggers.append(
+            {
+                "id": "top_divergence",
+                "label": "高位顶背离",
+                "floor": 58.0,
+                "detail": "指数高位但上涨家数趋势收窄",
+            }
+        )
+
+    # 高位拥挤：一年高位 + 资金集中偏高
+    if near250 and conc_ratio is not None:
+        lookback = _sampled_concentration_history(trade_date_str, window=60, step=5)
+        cur = _concentration_ratio(trade_date_str)
+        pct = _percentile_rank(cur, lookback) if cur is not None else None
+        if (conc_ratio >= 0.46) or (pct is not None and pct >= 0.80):
+            triggers.append(
+                {
+                    "id": "crowding_at_high",
+                    "label": "高位拥挤",
+                    "floor": 62.0,
+                    "detail": f"近一年高位区，成交集中度 {conc_ratio*100:.1f}%",
+                }
+            )
+
+    # 杠杆冲刺：2015 型
+    if len(days20) >= 2 and near60:
+        m0 = _margin_ratio_raw(days20[0])
+        m1 = _margin_ratio_raw(days20[-1])
+        if m0 and m1 and m0 > 0 and (m1 - m0) / m0 >= 0.10:
+            triggers.append(
+                {
+                    "id": "leverage_blowoff",
+                    "label": "杠杆冲刺",
+                    "floor": 68.0,
+                    "detail": f"融资占比20日升 {(m1-m0)/m0*100:.1f}%",
+                }
+            )
+
+    # 亢奋见顶：高位 + 情绪过热
+    sent_score = dimensions.get("sentiment", {}).get("score", 10)
+    if near60 and sentiment_score is not None and sentiment_score >= 0.35:
+        if sent_score >= 13 or (conc_ratio and conc_ratio >= 0.45):
+            triggers.append(
+                {
+                    "id": "euphoria_top",
+                    "label": "亢奋见顶",
+                    "floor": 60.0,
+                    "detail": f"高位区情绪 {sentiment_score:+.2f} 偏亢奋",
+                }
+            )
+
+    # 长期背景高危：250日高位 + 两维以上基础分偏高
+    high_dims = sum(
+        1
+        for k in ("concentration", "industry", "margin")
+        if dimensions.get(k, {}).get("score", 0) >= 12
+    )
+    if near250 and high_dims >= 2:
+        triggers.append(
+            {
+                "id": "background_risk",
+                "label": "顶部背景风险",
+                "floor": 60.0,
+                "detail": "高位区多维度风险共振",
+            }
+        )
+
+    core_count = len(triggers)
+    if core_count >= 2:
+        max_floor = max(t["floor"] for t in triggers)
+        triggers.append(
+            {
+                "id": "extreme_combo",
+                "label": "复合极端",
+                "floor": min(max(max_floor, 72.0), 85.0),
+                "detail": f"{core_count}项顶部信号共振",
+            }
+        )
+
+    floor_score = max((t["floor"] for t in triggers), default=0.0)
+    return triggers, floor_score
 
 
 # -------------------------------------------------------
@@ -263,14 +860,15 @@ def _score_sentiment(sentiment_score):
 # 综合评分 & 风险等级
 # -------------------------------------------------------
 def risk_level(total_score):
-    if total_score >= 70:
-        return "🔴 高危", "建议大幅减仓 / 对冲保护"
-    elif total_score >= 50:
+    if total_score >= 75:
+        return "⛔ 极端", "历史级顶部风险，建议大幅减仓/对冲"
+    if total_score >= 60:
+        return "🔴 紧急", "顶部信号明确，建议尽快减仓"
+    if total_score >= 45:
         return "🟡 预警", "逐步收紧仓位，收紧止盈"
-    elif total_score >= 30:
+    if total_score >= 30:
         return "🟢 中性", "正常持仓，密切关注"
-    else:
-        return "🟢 安全", "市场健康，可正常操作"
+    return "🟢 安全", "市场健康，可正常操作"
 
 
 def compute_risk_score(trade_date_str=None, sentiment_score=None):
@@ -338,14 +936,14 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "thresholds": {"warning": 30, "danger": 40},
     }
 
-    # 4. 市场宽度
-    s4, v4 = _score_breadth(trade_date_str)
-    dimensions["breadth"] = {
+    # 4. 恐慌扩散
+    s4, v4 = _score_market_stress(trade_date_str)
+    dimensions["market_stress"] = {
         "score": s4,
         "value": v4,
-        "label": "市场宽度",
-        "detail": f"上涨家数占比 {v4}%",
-        "thresholds": {"warning": 35, "danger": 20},
+        "label": "恐慌扩散",
+        "detail": f"跌幅≥5%个股占比 {v4}%",
+        "thresholds": {"warning": 8, "danger": 12},
     }
 
     # 5. 情绪分
@@ -361,15 +959,39 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "thresholds": {"warning": 0.3, "danger": 0.5},
     }
 
-    total_score = sum(d["score"] for d in dimensions.values())
-    total_score = round(min(total_score, 100), 1)
+    base_score = round(sum(d["score"] for d in dimensions.values()), 1)
+    signals, momentum_bonus = _score_momentum_signals(trade_date_str, s3)
+    accum_signals, accum_bonus = _score_accumulation_risk(trade_date_str)
+    all_signals = signals + accum_signals
+    hard_triggers, floor_score = _evaluate_hard_triggers(
+        trade_date_str, dimensions, sentiment_score
+    )
+
+    snapshot_score = round(min(base_score + momentum_bonus + accum_bonus, 100), 1)
+    total_score = round(min(max(snapshot_score, floor_score), 100), 1)
 
     level, advice = risk_level(total_score)
 
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
+    print(
+        f"    基础 {base_score} + 变动 {momentum_bonus} + 累积 {accum_bonus}"
+        + (f" | 硬触发底线 {floor_score}" if floor_score else "")
+    )
+    for sig in all_signals:
+        print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
+    for trig in hard_triggers:
+        if trig["id"] != "extreme_combo" or len(hard_triggers) >= 2:
+            print(f"    🚨 {trig['label']} → 底线 {trig['floor']} | {trig['detail']}")
 
     return {
         "total_score": total_score,
+        "base_score": base_score,
+        "momentum_bonus": momentum_bonus,
+        "accumulation_bonus": accum_bonus,
+        "floor_score": floor_score,
+        "snapshot_score": snapshot_score,
+        "signals": all_signals,
+        "hard_triggers": hard_triggers,
         "level": level,
         "advice": advice,
         "trade_date": target.strftime("%Y-%m-%d"),
