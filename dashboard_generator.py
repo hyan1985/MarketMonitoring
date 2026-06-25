@@ -73,13 +73,29 @@ class DashboardGenerator:
             bar_color, badge_bg, badge_fg = "#6ee7b7", "#6ee7b733", "#a7f3d0"
 
         distribution_html = ""
-        if risk and risk.get("distribution_leading"):
+        dist_patterns = (risk or {}).get("distribution_patterns", [])
+        if dist_patterns:
+            rows = ""
+            for p in dist_patterns:
+                is_alert = p.get("alert")
+                dot = "text-orange-400" if is_alert else "text-gray-500"
+                tag = "弹窗" if is_alert else "提示"
+                rows += f"""
+                    <div class="flex items-start gap-1.5 mt-1">
+                        <i class="fa-solid fa-circle text-[5px] mt-1.5 {dot}"></i>
+                        <div class="leading-snug">
+                            <span class="text-[11px] text-orange-200 font-semibold">{p['label']}</span>
+                            <span class="text-[9px] text-gray-500 ml-1">{p['kind']}·{tag}</span>
+                            <p class="text-[10px] text-gray-400">{p['detail']}</p>
+                        </div>
+                    </div>"""
+            border = "border-orange-500/40" if any(p.get("alert") for p in dist_patterns) else "border-gray-700/50"
             distribution_html = f"""
-                <div class="mt-1 mb-2 p-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                <div class="mt-1 mb-2 p-2 rounded-lg bg-orange-500/10 border {border}">
                     <div class="text-[11px] text-orange-300 font-semibold flex items-center gap-1">
-                        <i class="fa-solid fa-arrow-trend-down"></i> 顶部派发 · 领先信号
+                        <i class="fa-solid fa-arrow-trend-down"></i> 顶部派发特征 · 命中 {len(dist_patterns)} 项
                     </div>
-                    <p class="text-[10px] text-gray-400 leading-snug mt-0.5">{risk.get("distribution_detail") or "高位量价背离持续"}（近5日{risk.get("distribution_days", 0)}天）</p>
+                    {rows}
                 </div>"""
 
         risk_dual_track_html = ""

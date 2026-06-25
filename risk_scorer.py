@@ -250,7 +250,7 @@ def _index_bars_upto(trade_date_str, window=250):
             ts_code="000001.SH",
             start_date=start,
             end_date=trade_date_str,
-            fields="trade_date,close,pct_chg,amount",
+            fields="trade_date,open,high,low,close,pct_chg,amount",
         )
     except Exception:
         return None
@@ -520,6 +520,189 @@ def _vp_divergence_persistence(trade_date_str, window=5, need=3):
             hits += 1
             last_detail = det
     return hits, last_detail
+
+
+# -------------------------------------------------------
+# 顶部派发形态库：命中任一特征即返回提示
+# 每个检测器返回 dict 或 None：
+#   {id, label, detail, kind: 领先|同步, severity: 1~3}
+# -------------------------------------------------------
+def _dist_context(trade_date_str):
+    """汇总形态检测所需的指数量价上下文（一次取数，多形态复用）。"""
+    bars = _index_bars_upto(trade_date_str, 60)
+    if bars is None or len(bars) < 21:
+        return None
+    need_cols = {"open", "high", "low", "close", "amount"}
+    if not need_cols.issubset(set(bars.columns)):
+        return None
+    o = bars["open"].astype(float).tolist()
+    h = bars["high"].astype(float).tolist()
+    low = bars["low"].astype(float).tolist()
+    c = bars["close"].astype(float).tolist()
+    amt = bars["amount"].astype(float).tolist()
+    pct = _index_pct_chg(trade_date_str)
+    if any(v is None or v <= 0 for v in amt[-20:]):
+        vol20 = None
+    else:
+        vol20 = sum(amt[-20:]) / 20
+    high20_close = max(c[-20:])
+    high60_close = max(c[-60:]) if len(c) >= 60 else max(c)
+    cur = c[-1]
+    near20 = high20_close > 0 and (cur / high20_close - 1) * 100 >= -1.5
+    near60 = high60_close > 0 and (cur / high60_close - 1) * 100 >= -2.5
+    stats = _get_daily_stats(trade_date_str)
+    up5 = _avg_up_ratio(_trade_dates_upto(trade_date_str, 5))
+    return {
+        "open": o[-1], "high": h[-1], "low": low[-1], "close": cur,
+        "prev_close": c[-2], "amount": amt[-1], "vol20": vol20,
+        "pct": pct, "near20": near20, "near60": near60,
+        "up_ratio": stats.get("up_ratio") if stats else None,
+        "severe_ratio": stats.get("severe_ratio") if stats else None,
+        "up5": up5,
+    }
+
+
+def _pat_shrink_divergence(ctx, trade_date_str):
+    hits, detail = _vp_divergence_persistence(trade_date_str, window=5, need=3)
+    if hits >= 3:
+        return {
+            "id": "shrink_divergence",
+            "label": "缩量背离派发",
+            "detail": f"{detail}（近5日{hits}天）",
+            "kind": "领先",
+            "severity": 2,
+            "alert": True,
+        }
+    return None
+
+
+def _pat_huge_vol_stall(ctx, trade_date_str):
+    """天量滞涨：高位放天量但指数涨不动 → 巨量换手派发。"""
+    if not ctx["near20"] or ctx["vol20"] is None or ctx["pct"] is None:
+        return None
+    ratio = ctx["amount"] / ctx["vol20"]
+    if ratio >= 1.5 and ctx["pct"] < 0.5:
+        return {
+            "id": "huge_vol_stall",
+            "label": "天量滞涨派发",
+            "detail": f"高位放量{ratio:.1f}倍但仅涨{ctx['pct']:+.2f}%",
+            "kind": "同步",
+            "severity": 2,
+            "alert": True,
+        }
+    return None
+
+
+def _pat_upper_shadow(ctx, trade_date_str):
+    """冲高回落长上影：盘中冲高被砸、收阴。"""
+    if not ctx["near20"]:
+        return None
+    rng = ctx["high"] - ctx["low"]
+    if rng <= 0:
+        return None
+    upper = (ctx["high"] - ctx["close"]) / rng
+    pushed_up = ctx["high"] > ctx["prev_close"]  # 盘中确有冲高
+    if upper >= 0.5 and ctx["close"] < ctx["open"] and pushed_up:
+        return {
+            "id": "upper_shadow",
+            "label": "冲高回落派发",
+            "detail": f"长上影：上影占全日振幅{upper*100:.0f}%、收阴",
+            "kind": "同步",
+            "severity": 1,
+            "alert": False,
+        }
+    return None
+
+
+def _pat_exhaustion_gap(ctx, trade_date_str):
+    """跳空高开低走：衰竭跳空被回补。"""
+    if not ctx["near20"] or ctx["prev_close"] <= 0:
+        return None
+    gap = (ctx["open"] / ctx["prev_close"] - 1) * 100
+    if gap >= 0.5 and ctx["close"] < ctx["open"] and ctx["close"] <= ctx["prev_close"]:
+        return {
+            "id": "exhaustion_gap",
+            "label": "跳空衰竭派发",
+            "detail": f"高开{gap:+.1f}%低走、回补前收",
+            "kind": "同步",
+            "severity": 2,
+            "alert": True,
+        }
+    return None
+
+
+def _pat_high_vol_bear(ctx, trade_date_str):
+    """高位放量长阴：派发后的杀跌确认（偏破位）。"""
+    if not ctx["near60"] or ctx["vol20"] is None or ctx["pct"] is None:
+        return None
+    ratio = ctx["amount"] / ctx["vol20"]
+    if ctx["pct"] <= -1.5 and ratio >= 1.2:
+        return {
+            "id": "high_vol_bear",
+            "label": "高位放量长阴",
+            "detail": f"放量{ratio:.1f}倍长阴{ctx['pct']:+.2f}%",
+            "kind": "同步",
+            "severity": 3,
+            "alert": True,
+        }
+    return None
+
+
+def _pat_margin_drain(ctx, trade_date_str):
+    """融资退潮：杠杆冲高后回落 → 资金面领先转弱。"""
+    days20 = _trade_dates_upto(trade_date_str, 20)
+    if len(days20) < 20:
+        return None
+    series = [_margin_ratio_raw(d) for d in days20]
+    series = [s for s in series if s is not None]
+    if len(series) < 15:
+        return None
+    base = series[0]
+    peak = max(series)
+    cur = series[-1]
+    if base <= 0 or peak <= 0:
+        return None
+    run_up = (peak - base) / base
+    drawdown = (peak - cur) / peak
+    falling = cur < series[-2]
+    if run_up >= 0.08 and drawdown >= 0.02 and falling:
+        return {
+            "id": "margin_drain",
+            "label": "融资退潮派发",
+            "detail": f"融资20日冲高{run_up*100:.0f}%后回落{drawdown*100:.1f}%",
+            "kind": "领先",
+            "severity": 2,
+            "alert": True,
+        }
+    return None
+
+
+_DISTRIBUTION_DETECTORS = [
+    _pat_shrink_divergence,
+    _pat_huge_vol_stall,
+    _pat_upper_shadow,
+    _pat_exhaustion_gap,
+    _pat_high_vol_bear,
+    _pat_margin_drain,
+]
+
+
+def detect_distribution_patterns(trade_date_str):
+    """运行全部顶部派发形态检测，返回命中的形态列表。"""
+    if PRO is None:
+        return []
+    ctx = _dist_context(trade_date_str)
+    if ctx is None:
+        return []
+    matched = []
+    for det in _DISTRIBUTION_DETECTORS:
+        try:
+            res = det(ctx, trade_date_str)
+        except Exception:
+            res = None
+        if res:
+            matched.append(res)
+    return matched
 
 
 def _avg_up_ratio(days):
@@ -1230,11 +1413,13 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     structure_score = round(min(max(structure_raw, structure_floor), 50), 1)
     breakdown_score = round(min(max(breakdown_raw, breakdown_floor), 50), 1)
 
-    # 顶部派发领先信号：高位量价背离持续（近5日≥3天）
-    # 回测显示零误报、对缩量派发型顶部可提前数日，故确认时拉一档结构预警，
-    # 但不顶到紧急/极端（那两档仍保留给真实破位）。
-    vp_hits, vp_detail = _vp_divergence_persistence(trade_date_str, window=5, need=3)
-    distribution_leading = vp_hits >= 3
+    # 顶部派发形态库：命中任一特征即提示。
+    # alert=True 的形态（回测近60日零/极低误报）确认时拉一档结构预警；
+    # alert=False 的（如冲高回落，偏早/噪音）只做信息提示，不单独抬级。
+    # 紧急/极端仍保留给真实破位。
+    dist_patterns = detect_distribution_patterns(trade_date_str)
+    alert_patterns = [p for p in dist_patterns if p.get("alert")]
+    distribution_leading = len(alert_patterns) > 0
     if distribution_leading:
         structure_score = round(min(max(structure_score, 42.0), 50), 1)
 
@@ -1246,7 +1431,8 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         # 破位未确认时，用派发专属建议覆盖泛化的结构建议
         if "安全" in level or "中性" in level:
             level = "🟡 预警"
-        advice = "高位量价背离持续（顶部派发领先信号），建议分批减仓、严守止盈、勿追高"
+        labels = "、".join(p["label"] for p in alert_patterns)
+        advice = f"顶部派发信号（{labels}），建议分批减仓、严守止盈、勿追高"
 
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
     print(
@@ -1258,8 +1444,9 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         + (f" | 硬触发底线 {floor_score}" if floor_score else "")
         + ")"
     )
-    if distribution_leading:
-        print(f"    🔻 顶部派发(领先) | {vp_detail}（近5日{vp_hits}天背离）")
+    for p in dist_patterns:
+        flag = "🔻" if p.get("alert") else "🔸"
+        print(f"    {flag} {p['label']}（{p['kind']}）| {p['detail']}")
     for sig in all_signals:
         print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
     for trig in hard_triggers:
@@ -1272,8 +1459,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "breakdown_score": breakdown_score,
         "bull_trend": bull_trend,
         "distribution_leading": distribution_leading,
-        "distribution_detail": (vp_detail if distribution_leading else None),
-        "distribution_days": vp_hits,
+        "distribution_patterns": dist_patterns,
         "base_score": base_score,
         "momentum_bonus": momentum_bonus,
         "accumulation_bonus": accum_bonus,

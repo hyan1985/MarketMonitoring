@@ -269,10 +269,11 @@ def main():
             + (" (主升趋势熔断)" if risk_data.get("bull_trend") else "")
         )
         print(f"  - 风险等级: {risk_data['level']}")
-        if risk_data.get("distribution_leading"):
+        for p in risk_data.get("distribution_patterns", []):
+            flag = "🔻" if p.get("alert") else "🔸"
             print(
-                f"  - {Colors.WARNING}顶部派发(领先): "
-                f"{risk_data.get('distribution_detail')}{Colors.ENDC}"
+                f"  - {Colors.WARNING}{flag} 顶部派发·{p['label']}（{p['kind']}）: "
+                f"{p['detail']}{Colors.ENDC}"
             )
         print(f"  - 策略建议: {risk_data['advice']}")
         if risk_data.get("momentum_bonus") or risk_data.get("accumulation_bonus"):
