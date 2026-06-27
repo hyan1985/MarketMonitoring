@@ -163,6 +163,66 @@ class DashboardGenerator:
                 {bull_line}
                 <p class="text-[10px] text-gray-500 text-center mb-1">结构 {risk.get("structure_score", 0)} + 破位 {risk.get("breakdown_score", 0)} = {risk["total_score"]}</p>"""
 
+        # Build dimensions HTML and bottom signals/triggers strip for horizontal risk card
+        dims_html = ""
+        bottom_strip = ""
+        if risk:
+            dims_html = "".join(
+                f'''                    <div>
+                        <div class="flex justify-between text-xs text-gray-400 mb-0.5">
+                            <span>{d["label"]}</span>
+                            <span class="font-mono">{d["score"]}分</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full" style="width:{d["score"] / 20 * 100}%;
+                                background:{("#ef4444" if d["score"] >= 16 else "#f59e0b" if d["score"] >= 10 else "#10b981")};">
+                            </div>
+                        </div>
+                    </div>
+                    ''' for d in risk["dimensions"].values()
+            )
+            sigs = [s for s in risk.get("signals", []) if s.get("id") != "aftershock"]
+            trigs = risk.get("hard_triggers", [])
+            sig_html = ""
+            if sigs:
+                sig_html = (
+                    '<div>'
+                    '<span class="text-[10px] text-rose-400/80 uppercase tracking-wider">变动信号</span>'
+                    '<div class="mt-1.5 space-y-1">'
+                    + "".join(
+                        f'<div class="flex justify-between text-[11px] text-gray-400 gap-2">'
+                        f'<span class="text-rose-300/90">⚡ {s["label"]}</span>'
+                        f'<span class="font-mono text-rose-400 shrink-0">+{s["points"]}</span>'
+                        f'</div>'
+                        f'<p class="text-[10px] text-gray-600 leading-snug mb-1">{s["detail"]}</p>'
+                        for s in sigs
+                    )
+                    + '</div></div>'
+                )
+            trig_html = ""
+            if trigs:
+                trig_html = (
+                    '<div>'
+                    '<span class="text-[10px] text-red-400/90 uppercase tracking-wider">顶部信号 \u00b7 硬触发</span>'
+                    '<div class="mt-1.5 space-y-1">'
+                    + "".join(
+                        f'<div class="text-[11px] text-red-300/90">🚨 {t["label"]} '
+                        f'<span class="font-mono text-[10px] text-gray-500">'
+                        f'{"破位" if t.get("track") == "breakdown" else "结构"}</span></div>'
+                        f'<p class="text-[10px] text-gray-600 leading-snug mb-1">{t["detail"]}</p>'
+                        for t in trigs
+                        if t.get("id") != "extreme_combo" or len(trigs) >= 2
+                    )
+                    + '</div></div>'
+                )
+            if sig_html or trig_html:
+                bottom_strip = (
+                    '<div class="mt-4 pt-3 border-t border-gray-800/60">'
+                    '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'
+                    + sig_html + trig_html +
+                    '</div></div>'
+                )
+
         # Prepare lexicon for client-side simulator
         bullish_lexicon_json = json.dumps(config.get("bullish_words", []))
         bearish_lexicon_json = json.dumps(config.get("bearish_words", []))
@@ -227,8 +287,6 @@ class DashboardGenerator:
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js for premium graphics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- wordcloud2.js for word cloud -->
-    <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -387,7 +445,7 @@ class DashboardGenerator:
     <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:items-stretch">
 
         <!-- Sentiment Score Card — 左侧跨两行，与右侧趋势图+词频图底对齐 -->
-            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl relative overflow-hidden lg:col-span-1 lg:row-span-2 lg:h-full" id="score-card">
+            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl relative overflow-hidden lg:col-span-1" id="score-card">
                 <div class="absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl" id="bg-glow"></div>
                 <div class="relative z-10 w-full">
                     <div class="flex flex-col items-center text-center">
@@ -472,7 +530,7 @@ class DashboardGenerator:
             </div>
 
         <!-- Words Analysis Grid -->
-            <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <!-- Bullish Words Chart -->
                 <div class="glass-card mobile-card p-4 sm:p-5 rounded-2xl h-full flex flex-col">
                     <h3 class="text-emerald-400 text-xs sm:text-sm font-bold tracking-wider uppercase mb-3 sm:mb-4 flex items-center gap-2">
@@ -493,115 +551,56 @@ class DashboardGenerator:
                 </div>
             </div>
 
-            <!-- Market Risk Score Card (TuShare 多维数据) -->
-            {f'''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-1 lg:h-full" id="risk-card">
+            <!-- Market Risk Score Card (TuShare 多维数据) — 横版 -->
+            {f'''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-3" id="risk-card">
                 <h3 class="text-gray-400 text-xs sm:text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 大盘风险值预估
                 </h3>
-                <div class="text-center mb-4">
-                    <span class="text-4xl sm:text-5xl font-extrabold font-outfit text-white" id="risk-total">{risk["total_score"]}</span>
-                    <span class="text-gray-500 text-sm ml-1">/ 100</span>
-                </div>
-                <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden mb-3">
-                    <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
-                         style="width:{risk["total_score"]}%;
-                                background:{bar_color};">
-                    </div>
-                </div>
-                <div class="text-center mb-4">
-                    <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
-                          style="background:{badge_bg};
-                                 color:{badge_fg};">
-                        {risk["level"]}
-                    </span>
-                </div>
-                <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
-                {aftershock_html}
-                {distribution_html}
-                {risk_dual_track_html}
-                {limit_html}
-                {f'<p class="text-[10px] text-gray-500 text-center mb-1">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
-                {f'<p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
-                <!-- 资金集中度 → 大号突出 -->
-                <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
-                    <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
-                    <div class="text-4xl font-extrabold font-mono text-amber-300 mt-1">{conc_display}<span class="text-lg text-amber-400/60">{conc_unit}</span></div>
-                    <span class="text-[10px] text-amber-400/40 mt-0.5 block">前5%成交占比 · 当前评分 {risk["dimensions"]["concentration"]["score"]} 分</span>
-                </div>
-                <!-- 其他维度 -->
-                <div class="mt-3 space-y-1.5">
-                    ''' + "".join(
-                        f'''                    <div>
-                        <div class="flex justify-between text-xs text-gray-400 mb-0.5">
-                            <span>{d["label"]}</span>
-                            <span class="font-mono">{d["score"]}分</span>
-                        </div>
-                        <div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full" style="width:{d["score"] / 20 * 100}%;
-                                background:{("#ef4444" if d["score"] >= 16 else "#f59e0b" if d["score"] >= 10 else "#10b981")};">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                    <!-- Col 1: Big Score + Level + Advice -->
+                    <div class="flex flex-col items-center justify-center text-center">
+                        <span class="text-5xl sm:text-6xl font-extrabold font-outfit text-white" id="risk-total">{risk["total_score"]}</span>
+                        <span class="text-gray-500 text-sm">/ 100</span>
+                        <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden my-3">
+                            <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
+                                 style="width:{risk["total_score"]}%;
+                                        background:{bar_color};">
                             </div>
                         </div>
+                        <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
+                              style="background:{badge_bg};
+                                     color:{badge_fg};">
+                            {risk["level"]}
+                        </span>
+                        <p class="text-xs text-gray-400 leading-relaxed mt-2">{risk["advice"]}</p>
+                        {aftershock_html}
+                        {distribution_html}
                     </div>
-                    ''' for d in risk["dimensions"].values()
-                    ) + (
-                    "".join(
-                        f'''                    <div class="mt-2 pt-2 border-t border-gray-800/80">
-                        <span class="text-[10px] text-rose-400/80 uppercase tracking-wider">变动信号</span>
-                        <div class="mt-1.5 space-y-1">
-                    ''' + "".join(
-                            f'''                            <div class="flex justify-between text-[11px] text-gray-400 gap-2">
-                                <span class="text-rose-300/90">⚡ {s["label"]}</span>
-                                <span class="font-mono text-rose-400 shrink-0">+{s["points"]}</span>
-                            </div>
-                            <p class="text-[10px] text-gray-600 leading-snug mb-1">{s["detail"]}</p>
-                    ''' for s in risk.get("signals", []) if s.get("id") != "aftershock"
-                        ) + '''                        </div>
+                    <!-- Col 2: Dual Track + Limit Stats -->
+                    <div class="flex flex-col justify-center space-y-2">
+                        {risk_dual_track_html}
+                        {limit_html}
+                        {f'<p class="text-[10px] text-gray-500 text-center">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
+                        {f'<p class="text-[10px] text-gray-600 text-center">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
                     </div>
-                    '''
-                    ) if [s for s in risk.get("signals", []) if s.get("id") != "aftershock"] else ""
-                    ) + (
-                    "".join(
-                        f'''                    <div class="mt-2 pt-2 border-t border-red-900/40">
-                        <span class="text-[10px] text-red-400/90 uppercase tracking-wider">顶部信号 · 硬触发</span>
-                        <div class="mt-1.5 space-y-1">
-                    ''' + "".join(
-                            f'''                            <div class="text-[11px] text-red-300/90">🚨 {t["label"]} <span class="font-mono text-[10px] text-gray-500">{"破位" if t.get("track") == "breakdown" else "结构"}</span></div>
-                            <p class="text-[10px] text-gray-600 leading-snug mb-1">{t["detail"]}</p>
-                    ''' for t in risk.get("hard_triggers", []) if t.get("id") != "extreme_combo" or len(risk.get("hard_triggers", [])) >= 2
-                        ) + '''                        </div>
+                    <!-- Col 3: Concentration + Dimensions -->
+                    <div class="flex flex-col justify-center">
+                        <div class="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center mb-3">
+                            <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
+                            <div class="text-3xl font-extrabold font-mono text-amber-300 mt-1">{conc_display}<span class="text-lg text-amber-400/60">{conc_unit}</span></div>
+                            <span class="text-[10px] text-amber-400/40 mt-0.5 block">前5%成交占比 · 当前评分 {risk["dimensions"]["concentration"]["score"]} 分</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            {dims_html}
+                        </div>
                     </div>
-                    '''
-                    ) if risk.get("hard_triggers") else ""
-                    ) + '''                </div>
+                </div>
+                {bottom_strip}
             </div>
-            ''' if risk else '''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl text-center lg:col-span-1 lg:h-full">
+            ''' if risk else '''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl text-center lg:col-span-3">
                 <span class="text-gray-500 text-sm">大盘风险值暂未计算 (需 TuShare API)</span>
             </div>
             '''}
-
-        <!-- Word Cloud — 与左侧风险卡片同行等高 -->
-            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-2 lg:h-full flex flex-col">
-                <div class="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-3">
-                    <h3 class="text-white text-sm sm:text-base font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-cloud text-indigo-400"></i> 词频云图
-                    </h3>
-                    <div class="flex bg-gray-800/80 p-0.5 rounded-lg border border-gray-700/50">
-                        <button onclick="setWordCloudMode('all')" id="btn-wc-all" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow">
-                            全部
-                        </button>
-                        <button onclick="setWordCloudMode('bullish')" id="btn-wc-bullish" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
-                            多头
-                        </button>
-                        <button onclick="setWordCloudMode('bearish')" id="btn-wc-bearish" class="px-3 py-1.5 sm:px-3.5 sm:py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white">
-                            空头
-                        </button>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-400 mb-3">词越大代表出现越频繁。云图基于当日样本的多头/空头词库匹配统计。</p>
-                <div class="w-full flex-1 min-h-[200px] sm:min-h-[260px] bg-gray-950/30 border border-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
-                    <canvas id="wordcloud-canvas" class="w-full h-full"></canvas>
-                </div>
-            </div>
 
         <!-- Full Width: Real-time Sentiment Simulator -->
         <section class="lg:col-span-3">
@@ -954,90 +953,6 @@ class DashboardGenerator:
             }});
         }}
 
-        // Word Cloud (wordcloud2.js)
-        const bullishWordItems = {json.dumps(data.get("top_bullish_words", []))};
-        const bearishWordItems = {json.dumps(data.get("top_bearish_words", []))};
-        let currentWordCloudMode = 'all';
-
-        function buildWordCloudList(mode) {{
-            const list = [];
-            const pushItems = (items, polarity) => {{
-                items.forEach(it => {{
-                    if (!it || !it.word) return;
-                    const weight = Number(it.count || 0);
-                    if (!weight) return;
-                    list.push([it.word, weight, polarity]);
-                }});
-            }};
-            if (mode === 'bullish') {{
-                pushItems(bullishWordItems, 'bullish');
-            }} else if (mode === 'bearish') {{
-                pushItems(bearishWordItems, 'bearish');
-            }} else {{
-                pushItems(bullishWordItems, 'bullish');
-                pushItems(bearishWordItems, 'bearish');
-            }}
-            return list;
-        }}
-
-        function renderWordCloud() {{
-            const canvas = document.getElementById('wordcloud-canvas');
-            if (!canvas || typeof WordCloud === 'undefined') return;
-
-            // Fit canvas to container for crisp rendering
-            const container = canvas.parentElement;
-            const dpr = window.devicePixelRatio || 1;
-            const w = Math.max(320, container.clientWidth);
-            const h = Math.max(220, container.clientHeight);
-            canvas.width = Math.floor(w * dpr);
-            canvas.height = Math.floor(h * dpr);
-            canvas.style.width = w + 'px';
-            canvas.style.height = h + 'px';
-
-            const list = buildWordCloudList(currentWordCloudMode);
-            const maxWeight = Math.max(...list.map(x => x[1]), 1);
-
-            WordCloud(canvas, {{
-                list: list.map(x => [x[0], x[1]]),
-                gridSize: Math.round(8 * dpr),
-                weightFactor: (size) => {{
-                    // Normalize weights → font px
-                    const normalized = size / maxWeight;
-                    return Math.max(10, Math.round((12 + normalized * 42) * dpr));
-                }},
-                minSize: 10,
-                fontFamily: 'Outfit, Inter, sans-serif',
-                color: (word) => {{
-                    // Color by polarity when in mixed mode
-                    const item = list.find(x => x[0] === word);
-                    const pol = item ? item[2] : 'neutral';
-                    if (pol === 'bullish') return 'rgba(16, 185, 129, 0.95)';
-                    if (pol === 'bearish') return 'rgba(239, 68, 68, 0.95)';
-                    return 'rgba(156, 163, 175, 0.9)';
-                }},
-                rotateRatio: 0.12,
-                rotationSteps: 2,
-                minRotation: 0,
-                maxRotation: Math.PI / 2,
-                backgroundColor: 'rgba(0,0,0,0)',
-                drawOutOfBound: false,
-                shrinkToFit: true,
-            }});
-        }}
-
-        function setWordCloudMode(mode) {{
-            currentWordCloudMode = mode;
-            const btnAll = document.getElementById('btn-wc-all');
-            const btnBull = document.getElementById('btn-wc-bullish');
-            const btnBear = document.getElementById('btn-wc-bearish');
-            const active = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all bg-indigo-600 text-white shadow";
-            const inactive = "px-3.5 py-1 text-xs rounded-md font-semibold transition-all text-gray-400 hover:text-white";
-            btnAll.className = (mode === 'all') ? active : inactive;
-            btnBull.className = (mode === 'bullish') ? active : inactive;
-            btnBear.className = (mode === 'bearish') ? active : inactive;
-            renderWordCloud();
-        }}
-
         // Simulator Code (Client Side parsing with negation context flipping)
         function runSimulation() {{
             const text = document.getElementById("simulator-input").value.trim();
@@ -1276,7 +1191,6 @@ class DashboardGenerator:
             initGauge();
             renderTrendChart();
             renderWordCharts();
-            renderWordCloud();
             filterAndRenderTable();
         }});
 
@@ -1284,7 +1198,6 @@ class DashboardGenerator:
         window.addEventListener("resize", () => {{
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => {{
-                renderWordCloud();
                 if (typeof trendChartObj !== 'undefined' && trendChartObj) trendChartObj.resize();
             }}, 150);
         }});
