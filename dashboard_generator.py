@@ -526,7 +526,7 @@ class DashboardGenerator:
                 <div class="mt-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center">
                     <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
                     <div class="text-4xl font-extrabold font-mono text-amber-300 mt-1">{conc_display}<span class="text-lg text-amber-400/60">{conc_unit}</span></div>
-                    <span class="text-[10px] text-amber-400/40 mt-0.5 block">历史极值 52.1% · 当前 {risk["dimensions"]["concentration"]["score"]} 分</span>
+                    <span class="text-[10px] text-amber-400/40 mt-0.5 block">前5%成交占比 · 当前评分 {risk["dimensions"]["concentration"]["score"]} 分</span>
                 </div>
                 <!-- 其他维度 -->
                 <div class="mt-3 space-y-1.5">
