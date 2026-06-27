@@ -43,8 +43,8 @@ class DashboardGenerator:
         risk = data.get("risk")  # TuShare risk score (optional)
 
         source_labels = {"eastmoney": "东财股吧", "xueqiu": "雪球", "ths": "同花顺"}
-        posts_for_sources = data.get("posts", [])
-        actual_sources = sorted({p.get("source", "eastmoney") for p in posts_for_sources})
+        summary = data.get("summary") or {}
+        actual_sources = summary.get("sources_used") or []
         if actual_sources:
             sources_text = " + ".join(source_labels.get(s, s) for s in actual_sources)
         else:
@@ -803,14 +803,30 @@ class DashboardGenerator:
 
     <!-- EMBEDDED DATA & CODE -->
     <script>
-        // Inject data from generator
-        const rawPosts = {json.dumps(data["posts"])};
         const bullishLexicon = {bullish_lexicon_json};
         const bearishLexicon = {bearish_lexicon_json};
         const negationLexicon = {negation_lexicon_json};
+        let rawPosts = [];
         
         // Setup Score Gauge Animation
         const score = {data["summary"]["overall_weighted_score"]};
+
+        async function loadPosts() {{
+            const tbody = document.getElementById("posts-table-body");
+            const countEl = document.getElementById("showing-posts-count");
+            try {{
+                const resp = await fetch("posts.json", {{ cache: "no-store" }});
+                if (!resp.ok) throw new Error("posts.json not found");
+                rawPosts = await resp.json();
+                filterAndRenderTable();
+            }} catch (err) {{
+                console.warn("Failed to load posts.json:", err);
+                if (tbody) {{
+                    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-sm text-gray-500">帖子明细需通过 HTTP 访问（运行 main.py 或 python -m http.server）</td></tr>';
+                }}
+                if (countEl) countEl.textContent = "帖子数据未加载";
+            }}
+        }}
         
         function initGauge() {{
             const card = document.getElementById("score-card");
@@ -1269,7 +1285,7 @@ class DashboardGenerator:
             initGauge();
             renderTrendChart();
             renderWordCharts();
-            filterAndRenderTable();
+            loadPosts();
         }});
 
         let resizeTimer;

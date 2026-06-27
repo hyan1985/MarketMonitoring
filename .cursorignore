@@ -1,0 +1,10 @@
+# Large generated artifacts — keep Cursor fast
+data.json
+posts.json
+index.html
+
+# Python / OS noise
+__pycache__/
+*.pyc
+.venv/
+venv/

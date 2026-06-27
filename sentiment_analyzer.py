@@ -330,7 +330,8 @@ class SentimentAnalyzer:
                 "bullish_posts": pos_posts_count,
                 "bearish_posts": neg_posts_count,
                 "neutral_posts": neu_posts_count,
-                "last_updated": format_beijing()
+                "last_updated": format_beijing(),
+                "sources_used": sorted({p.get("source", "eastmoney") for p in analyzed_posts}),
             },
             "top_bullish_words": [{"word": k, "count": v} for k, v in bullish_counter.most_common(15)],
             "top_bearish_words": [{"word": k, "count": v} for k, v in bearish_counter.most_common(15)],
@@ -342,53 +343,44 @@ class SentimentAnalyzer:
         return sentiment_data
 
     def save_results(self, data, output_path="/Users/hyan/Desktop/词频情绪/data.json"):
-        """Save results to data.json with historical daily_trends and hourly_trends merging"""
-        import os
+        """Save summary/trends to data.json; posts go to compact posts.json."""
+        from data_store import save_bundle
+
         try:
-            # 1. Load historical database if present
             existing_daily = {}
             existing_hourly = {}
-            
+
             if os.path.exists(output_path):
                 try:
-                    with open(output_path, "r", encoding="utf-8") as f:
-                        old_data = json.load(f)
-                    
-                    # Accumulate daily trends from history
+                    from data_store import load_bundle
+
+                    old_data = load_bundle(output_path, include_posts=False)
                     for item in old_data.get("daily_trends", []):
                         if "date" in item:
                             existing_daily[item["date"]] = item
-                            
-                    # Accumulate hourly trends from history
                     for item in old_data.get("hourly_trends", []):
                         if "time" in item:
                             existing_hourly[item["time"]] = item
                 except Exception as ex:
                     print(f"[Analyzer] Warning reading existing database for merging: {ex}")
 
-            # 2. Merge newly computed daily_trends
             new_daily = {item["date"]: item for item in data.get("daily_trends", []) if "date" in item}
             for d, item in existing_daily.items():
                 if d not in new_daily:
                     new_daily[d] = item
-            
-            # 3. Merge newly computed hourly_trends
+
             new_hourly = {item["time"]: item for item in data.get("hourly_trends", []) if "time" in item}
             for t, item in existing_hourly.items():
                 if t not in new_hourly:
                     new_hourly[t] = item
 
-            # 4. Sort and compile back into data structure
-            sorted_daily = [new_daily[d] for d in sorted(new_daily.keys())]
+            data["daily_trends"] = [new_daily[d] for d in sorted(new_daily.keys())]
+            # Cap hourly history to reduce unbounded growth (~30 days of buckets)
             sorted_hourly = [new_hourly[t] for t in sorted(new_hourly.keys())]
-            
-            data["daily_trends"] = sorted_daily
-            data["hourly_trends"] = sorted_hourly
+            data["hourly_trends"] = sorted_hourly[-720:]
 
-            # 5. Overwrite the database with consolidated growth records
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            print(f"[Analyzer] Successfully saved and accumulated analysis results to {output_path}")
+            save_bundle(data, output_path)
+            print(f"[Analyzer] Saved dashboard bundle to {output_path} (+ posts.json)")
         except Exception as e:
             print(f"[Analyzer] Error saving results: {e}", file=sys.stderr)
 

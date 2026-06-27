@@ -156,7 +156,7 @@ git push -u origin main
 - **每天北京时间 00:30**（0 点后）自动执行
 - 抓取**前一自然日**全天论坛帖子；TuShare 风险数据取该日或之前最近已入库的交易日
 - 全项目时间与面板展示统一为**北京时间 (Asia/Shanghai)**
-- 自动 commit `data.json` 与 `index.html`
+- 自动 commit `data.json`、`posts.json` 与 `index.html`
 
 ---
 
@@ -171,8 +171,10 @@ git push -u origin main
 ├── xueqiu_crawler.py       # 雪球爬虫
 ├── ths_crawler.py          # 同花顺爬虫
 ├── config.example.json     # 配置模板（不含敏感信息）
-├── data.json               # 分析结果（由 workflow 更新）
-├── index.html              # 在线看板（由 workflow 更新）
+├── data.json               # 分析摘要 + 风险分（轻量，~15KB）
+├── posts.json              # 帖子明细（紧凑 JSON，看板异步加载）
+├── index.html              # 在线看板模板（~60KB，不再内嵌帖子）
+├── data_store.py           # data.json / posts.json 读写
 ├── scripts/                # 历史回测脚本
 │   ├── backtest_risk_peaks.py
 │   ├── backtest_vp_divergence.py

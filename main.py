@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import platform
 import subprocess
 import sys
 import webbrowser
@@ -17,6 +16,7 @@ from ths_crawler import ThsCrawler
 from crawler_utils import merge_posts, calc_pages, filter_posts_for_run_date
 from sentiment_analyzer import SentimentAnalyzer
 from dashboard_generator import DashboardGenerator
+from data_store import load_bundle, save_bundle
 from risk_scorer import compute_risk_score
 
 # ANSI escape codes for beautiful terminal progress prints
@@ -298,10 +298,10 @@ def main():
             bar = "█" * int(dim["score"]) + "░" * (20 - int(dim["score"]))
             print(f"    {dim['label']}: [{bar}] {dim['score']}分  |  {dim['detail']}")
 
-        # Append risk data to data.json
-        sentiment_results["risk"] = risk_data
-        with open(data_path, "w", encoding="utf-8") as f:
-            json.dump(sentiment_results, f, ensure_ascii=False, indent=2)
+        # Append risk data to data.json (posts stay in posts.json)
+        bundle = load_bundle(data_path, include_posts=False)
+        bundle["risk"] = risk_data
+        save_bundle(bundle, data_path)
         print_success("大盘风险值已合并写入 data.json。")
     except Exception as e:
         print_error(f"大盘风险值计算失败: {e}")
@@ -332,17 +332,20 @@ def main():
 
     print_step("步骤 5: 自动打开情绪分 Dashboard 浏览器页面")
     try:
-        print(f"正在拉起系统浏览器打开：{html_path}")
-        if platform.system() == "Darwin":
-            # macOS 下 webbrowser.open 常因 Chrome butler/Chrome 触发 os.path 用 open 更稳
-            result = subprocess.run(["open", html_path], capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr.strip() or f"open 命令退出码 {result.returncode}")
-        else:
-            webbrowser.open(f"file://{html_path}")
-        print_success("已成功拉起浏览器打开交互可视化面板！")
+        port = 8765
+        server = subprocess.Popen(
+            [sys.executable, "-m", "http.server", str(port)],
+            cwd=workspace_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        url = f"http://127.0.0.1:{port}/index.html"
+        print(f"正在打开本地看板：{url}")
+        webbrowser.open(url)
+        print_success("已启动本地 HTTP 服务并打开看板（帖子从 posts.json 加载）。")
+        print(f"  若需手动访问: cd {workspace_dir} && python -m http.server {port}")
     except Exception as e:
-        print_error(f"拉起浏览器失败: {e}，您可以手动双击 index.html 进行查看。")
+        print_error(f"拉起浏览器失败: {e}，您可以手动运行 python -m http.server 8765 后访问 index.html。")
 
     print(f"\n{Colors.OKGREEN}{Colors.BOLD}====================================================")
     print("      所有分析与报表处理完毕！系统成功退出。        ")
