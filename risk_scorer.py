@@ -189,6 +189,74 @@ def _get_daily_stats(trade_date_str):
     return stats
 
 
+_LIMIT_CACHE = {}
+
+
+def _get_limit_stats(trade_date_str):
+    """
+    涨停/炸板/跌停统计（赚钱效应）。一次 limit_list_d 请求，缓存复用。
+    返回 dict: up(涨停U), bust(炸板Z), down(跌停D), bust_rate, down_up。
+    limit_list_d 仅覆盖近年（约2020+），更早返回 None。
+    """
+    if trade_date_str in _LIMIT_CACHE:
+        return _LIMIT_CACHE[trade_date_str]
+    if PRO is None:
+        return None
+    try:
+        df = PRO.limit_list_d(trade_date=trade_date_str, fields="ts_code,limit")
+    except Exception:
+        return None
+    if df is None or df.empty or "limit" not in df.columns:
+        _LIMIT_CACHE[trade_date_str] = None
+        return None
+    vc = df["limit"].value_counts().to_dict()
+    up = int(vc.get("U", 0))
+    bust = int(vc.get("Z", 0))
+    down = int(vc.get("D", 0))
+    stats = {
+        "up": up,
+        "bust": bust,
+        "down": down,
+        "bust_rate": (bust / (up + bust)) if (up + bust) > 0 else None,
+        "down_up": (down / up) if up > 0 else (None if down == 0 else 9.99),
+    }
+    _LIMIT_CACHE[trade_date_str] = stats
+    return stats
+
+
+def _limit_breakdown_boost(trade_date_str):
+    """
+    赚钱效应崩塌 → 破位分加成（同步确认，非领先）。
+    炸板潮（封板资金弱）+ 跌停扩散（杀跌潮）。罕见，回测近60日仅极端case触发。
+    返回 (points, detail or None)。
+    """
+    s = _get_limit_stats(trade_date_str)
+    if not s or s["bust_rate"] is None:
+        return 0.0, None
+    if s["up"] + s["bust"] + s["down"] < 20:
+        return 0.0, None
+    pts = 0.0
+    reasons = []
+    br = s["bust_rate"]
+    if br >= 0.55:
+        pts += 8.0
+        reasons.append(f"炸板率{br*100:.0f}%")
+    elif br >= 0.45:
+        pts += 4.0
+        reasons.append(f"炸板率{br*100:.0f}%")
+    du = s["down_up"]
+    if s["down"] >= 35 and du is not None and du >= 0.7:
+        pts += 8.0
+        reasons.append(f"跌停{s['down']}家/涨停{s['up']}家")
+    elif s["down"] >= 25 and du is not None and du >= 0.5:
+        pts += 4.0
+        reasons.append(f"跌停{s['down']}家")
+    if pts <= 0:
+        return 0.0, None
+    pts = min(pts, 12.0)
+    return pts, "赚钱效应崩塌：" + "、".join(reasons)
+
+
 def warm_market_cache(trade_dates, throttle_sec=0.13):
     """
     批量预热行情缓存，避免回测时触发 TuShare 频率限制。
@@ -1509,11 +1577,22 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
                 "detail": covert_detail,
             }
         ]
+    limit_pts, limit_detail = _limit_breakdown_boost(trade_date_str)
+    if limit_pts > 0:
+        all_signals = all_signals + [
+            {
+                "id": "limit_breakdown",
+                "label": "炸板跌停潮",
+                "points": limit_pts,
+                "detail": limit_detail,
+            }
+        ]
     breakdown_raw = (
         _breakdown_from_dimensions(dimensions)
         + break_mom
         + _breakdown_index_boost(trade_date_str)
         + covert_pts
+        + limit_pts
     )
 
     structure_score = round(min(max(structure_raw, structure_floor), 50), 1)
@@ -1580,6 +1659,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "breakdown_score": breakdown_score,
         "bull_trend": bull_trend,
         "aftershock": aftershock,
+        "limit_stats": _get_limit_stats(trade_date_str),
         "distribution_leading": distribution_leading,
         "distribution_patterns": dist_patterns,
         "base_score": base_score,

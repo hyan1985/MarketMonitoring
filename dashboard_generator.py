@@ -72,6 +72,33 @@ class DashboardGenerator:
         else:
             bar_color, badge_bg, badge_fg = "#6ee7b7", "#6ee7b733", "#a7f3d0"
 
+        limit_html = ""
+        ls = (risk or {}).get("limit_stats")
+        if ls and (ls.get("up") is not None):
+            br = ls.get("bust_rate")
+            br_txt = f"{br*100:.0f}%" if br is not None else "—"
+            br_color = "text-red-400" if (br is not None and br >= 0.45) else "text-gray-300"
+            limit_html = f"""
+                <div class="mt-2 grid grid-cols-4 gap-1 text-center">
+                    <div class="p-1.5 rounded bg-red-500/5">
+                        <span class="text-[9px] text-gray-500 block">涨停</span>
+                        <span class="text-sm font-mono font-bold text-red-300">{ls.get('up', 0)}</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-gray-500/5">
+                        <span class="text-[9px] text-gray-500 block">炸板</span>
+                        <span class="text-sm font-mono font-bold text-gray-300">{ls.get('bust', 0)}</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-green-500/5">
+                        <span class="text-[9px] text-gray-500 block">跌停</span>
+                        <span class="text-sm font-mono font-bold text-green-300">{ls.get('down', 0)}</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-gray-500/5">
+                        <span class="text-[9px] text-gray-500 block">炸板率</span>
+                        <span class="text-sm font-mono font-bold {br_color}">{br_txt}</span>
+                    </div>
+                </div>
+                <p class="text-[9px] text-gray-600 text-center mt-0.5">赚钱效应：炸板率高/跌停多 = 资金接力转弱</p>"""
+
         aftershock_html = ""
         if risk and risk.get("aftershock"):
             aft_detail = ""
@@ -492,6 +519,7 @@ class DashboardGenerator:
                 {aftershock_html}
                 {distribution_html}
                 {risk_dual_track_html}
+                {limit_html}
                 {f'<p class="text-[10px] text-gray-500 text-center mb-1">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
                 {f'<p class="text-[10px] text-gray-600 text-center mb-2">行情数据日 {risk_trade_date}（北京时间）</p>' if risk_trade_date else ''}
                 <!-- 资金集中度 → 大号突出 -->
