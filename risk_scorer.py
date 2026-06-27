@@ -349,6 +349,64 @@ def _sampled_concentration_history(trade_date_str, window=60, step=5):
     return [_concentration_ratio(days[i]) for i in range(0, len(days), step)]
 
 
+def _concentration_history_sample(trade_date_str, window=252, step=5):
+    """近一年成交集中度采样序列（比例 0~1）。"""
+    days = _trade_dates_upto(trade_date_str, window)
+    if not days:
+        return []
+    out = []
+    for i in range(0, len(days), step):
+        r = _concentration_ratio(days[i])
+        if r is not None:
+            out.append(r)
+    return out
+
+
+def _concentration_historical_context(trade_date_str, window=252, step=5):
+    """
+    近一年成交集中度统计：极值、分位、高低中位。
+    返回 dict 或 None。
+    """
+    days = _trade_dates_upto(trade_date_str, window)
+    if not days:
+        return None
+    sample = []
+    for i in range(0, len(days), step):
+        r = _concentration_ratio(days[i])
+        if r is not None:
+            sample.append(r)
+    if not sample:
+        return None
+    cur = _concentration_ratio(trade_date_str)
+    pct = _percentile_rank(cur, sample) if cur is not None else None
+    max_r = max(sample)
+    min_r = min(sample)
+    sorted_s = sorted(sample)
+    mid = sorted_s[len(sorted_s) // 2]
+    max_date = None
+    for i in range(0, len(days), step):
+        r = _concentration_ratio(days[i])
+        if r is not None and r == max_r:
+            max_date = days[i]
+            break
+    return {
+        "historical_max": round(max_r * 100, 2),
+        "historical_max_date": max_date,
+        "historical_min": round(min_r * 100, 2),
+        "historical_median": round(mid * 100, 2),
+        "historical_percentile": round(pct * 100, 1) if pct is not None else None,
+        "sample_count": len(sample),
+    }
+
+
+def _concentration_historical_extreme(trade_date_str, window=252, step=5):
+    """近一年成交集中度采样极值（%）。"""
+    ctx = _concentration_historical_context(trade_date_str, window, step)
+    if not ctx:
+        return None, None
+    return ctx["historical_max"], ctx["historical_max_date"]
+
+
 def _industry_ratio(trade_date_str):
     stats = _get_daily_stats(trade_date_str)
     if not stats:
@@ -1498,12 +1556,19 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
 
     # 1. 资金集中度
     s1, v1 = _score_concentration(trade_date_str)
+    hist_ctx = _concentration_historical_context(trade_date_str) or {}
     dimensions["concentration"] = {
         "score": s1,
         "value": v1,
         "label": "资金集中度",
         "detail": (f"前5%个股成交额占全市场 {v1}%" if v1 is not None else "成交数据暂无（取中位分）"),
         "thresholds": {"warning": 50, "danger": 52},
+        "historical_max": hist_ctx.get("historical_max"),
+        "historical_max_date": hist_ctx.get("historical_max_date"),
+        "historical_min": hist_ctx.get("historical_min"),
+        "historical_median": hist_ctx.get("historical_median"),
+        "historical_percentile": hist_ctx.get("historical_percentile"),
+        "sample_count": hist_ctx.get("sample_count"),
     }
 
     # 2. 融资占比

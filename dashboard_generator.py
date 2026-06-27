@@ -51,15 +51,54 @@ class DashboardGenerator:
             enabled = [source_labels[k] for k, v in (config.get("sources") or {}).items() if v]
             sources_text = " + ".join(enabled) if enabled else "东财股吧"
 
-        conc_value = None
-        if risk:
-            conc_value = risk.get("dimensions", {}).get("concentration", {}).get("value")
-        conc_display = f"{conc_value}" if conc_value is not None else "—"
-        conc_unit = "%" if conc_value is not None else ""
         risk_trade_date = (risk or {}).get("trade_date", "")
 
-        # 配色按风险「等级」派生（而非 total_score 阈值），
-        # 否则破位分驱动的「紧急/极端」可能错配成绿/黄色。
+        conc_value = None
+        conc_hist_max = None
+        conc_hist_min = None
+        conc_hist_median = None
+        conc_percentile = None
+        conc_sample_count = None
+        if risk:
+            conc_dim = risk.get("dimensions", {}).get("concentration", {})
+            conc_value = conc_dim.get("value")
+            conc_hist_max = conc_dim.get("historical_max")
+            conc_hist_min = conc_dim.get("historical_min")
+            conc_hist_median = conc_dim.get("historical_median")
+            conc_percentile = conc_dim.get("historical_percentile")
+            conc_sample_count = conc_dim.get("sample_count")
+            if conc_percentile is None and risk_trade_date:
+                try:
+                    from risk_scorer import _concentration_historical_context
+                    td = risk_trade_date.replace("-", "")
+                    ctx = _concentration_historical_context(td)
+                    if ctx:
+                        conc_hist_max = ctx.get("historical_max")
+                        conc_hist_min = ctx.get("historical_min")
+                        conc_hist_median = ctx.get("historical_median")
+                        conc_percentile = ctx.get("historical_percentile")
+                        conc_sample_count = ctx.get("sample_count")
+                except Exception:
+                    pass
+        conc_display = f"{conc_value}" if conc_value is not None else "—"
+        conc_unit = "%" if conc_value is not None else ""
+        conc_hist_display = f"{conc_hist_max}" if conc_hist_max is not None else "—"
+        conc_above_hist = (
+            conc_value is not None
+            and conc_hist_max is not None
+            and conc_value > conc_hist_max
+        )
+        conc_subline = (
+            f'历史极值 {conc_hist_display}% · 当前 {risk["dimensions"]["concentration"]["score"]} 分'
+            if risk and conc_hist_max is not None
+            else (
+                f'当前评分 {risk["dimensions"]["concentration"]["score"]} 分'
+                if risk
+                else ""
+            )
+        )
+
+        # 配色按风险「等级」派生
         risk_level_text = (risk or {}).get("level", "")
         if "极端" in risk_level_text:
             bar_color, badge_bg, badge_fg = "#7f1d1d", "#7f1d1d55", "#fecaca"
@@ -163,9 +202,10 @@ class DashboardGenerator:
                 {bull_line}
                 <p class="text-[10px] text-gray-500 text-center mb-1">结构 {risk.get("structure_score", 0)} + 破位 {risk.get("breakdown_score", 0)} = {risk["total_score"]}</p>"""
 
-        # Build dimensions HTML and bottom signals/triggers strip for horizontal risk card
+        # Build dimensions HTML and bottom strip for horizontal risk card
         dims_html = ""
         bottom_strip = ""
+        conc_percentile_html = ""
         if risk:
             dims_html = "".join(
                 f'''                    <div>
@@ -215,11 +255,50 @@ class DashboardGenerator:
                     )
                     + '</div></div>'
                 )
-            if sig_html or trig_html:
+            if conc_percentile is not None:
+                pct_val = float(conc_percentile)
+                pct_marker = min(98, max(2, pct_val))
+                if pct_val >= 90:
+                    pct_color = "text-red-400"
+                    pct_label = "极高拥挤"
+                elif pct_val >= 70:
+                    pct_color = "text-amber-300"
+                    pct_label = "偏高拥挤"
+                else:
+                    pct_color = "text-emerald-400"
+                    pct_label = "相对温和"
+                min_txt = f"{conc_hist_min}" if conc_hist_min is not None else "—"
+                med_txt = f"{conc_hist_median}" if conc_hist_median is not None else "—"
+                max_txt = f"{conc_hist_max}" if conc_hist_max is not None else "—"
+                sample_txt = f"{conc_sample_count}个采样日" if conc_sample_count else "近一年"
+                conc_percentile_html = f'''
+                    <div class="h-full p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex flex-col justify-center">
+                        <span class="text-[10px] text-amber-400/80 uppercase tracking-wider">成交集中度 · 近一年历史分位</span>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span class="text-3xl font-extrabold font-mono {pct_color}">{pct_val:.0f}</span>
+                            <span class="text-sm text-gray-500">%</span>
+                            <span class="text-[10px] ml-1 px-1.5 py-0.5 rounded {pct_color} bg-white/5">{pct_label}</span>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-1 leading-snug">当前 {conc_display}% 高于近一年 {pct_val:.0f}% 的交易日<br>类似 PE 分位，越高越拥挤</p>
+                        <div class="relative h-2 rounded-full bg-gradient-to-r from-emerald-600/80 via-amber-500/80 to-red-600/80 mt-2.5">
+                            <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-amber-200 shadow-lg shadow-amber-500/30"
+                                 style="left:{pct_marker}%;"></div>
+                        </div>
+                        <div class="flex justify-between text-[9px] text-gray-600 mt-1 font-mono">
+                            <span>低 {min_txt}%</span>
+                            <span>中位 {med_txt}%</span>
+                            <span>高 {max_txt}%</span>
+                        </div>
+                        <p class="text-[9px] text-gray-600 mt-1 text-center">{sample_txt}</p>
+                    </div>'''
+            if sig_html or trig_html or conc_percentile_html:
+                bottom_cols = [c for c in (sig_html, trig_html, conc_percentile_html) if c]
+                ncol = len(bottom_cols)
+                grid_cls = "grid-cols-1" if ncol == 1 else f"grid-cols-1 sm:grid-cols-{ncol}"
                 bottom_strip = (
-                    '<div class="mt-4 pt-3 border-t border-gray-800/60">'
-                    '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">'
-                    + sig_html + trig_html +
+                    f'<div class="mt-3 pt-3 border-t border-gray-800/60">'
+                    f'<div class="grid {grid_cls} gap-3 items-stretch">'
+                    + "".join(bottom_cols) +
                     '</div></div>'
                 )
 
@@ -339,7 +418,7 @@ class DashboardGenerator:
         }}
         /* Dial Gauge Styling — scales with screen width */
         .gauge-container {{
-            --gauge-w: min(260px, calc(100vw - 3rem));
+            --gauge-w: min(200px, calc(72vw - 2rem));
             position: relative;
             width: var(--gauge-w);
             height: calc(var(--gauge-w) * 0.5);
@@ -444,88 +523,87 @@ class DashboardGenerator:
 
     <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:items-stretch">
 
-        <!-- Sentiment Score Card — 左侧跨两行，与右侧趋势图+词频图底对齐 -->
-            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl relative overflow-hidden lg:col-span-1" id="score-card">
+        <!-- Sentiment Score Card -->
+            <div class="glass-card mobile-card p-3 sm:p-4 rounded-2xl relative overflow-hidden lg:col-span-1" id="score-card">
                 <div class="absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/5 blur-3xl" id="bg-glow"></div>
                 <div class="relative z-10 w-full">
                     <div class="flex flex-col items-center text-center">
-                        <h3 class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-5 flex items-center justify-center gap-2 w-full">
+                        <h3 class="text-gray-400 text-[10px] font-semibold tracking-widest uppercase mb-3 flex items-center justify-center gap-2 w-full">
                             <i class="fa-solid fa-gauge-high text-teal-500"></i> 大盘情绪指数
                         </h3>
-                        <div class="gauge-container mb-5">
+                        <div class="gauge-container mb-3">
                             <div class="gauge-body"></div>
                             <div class="gauge-cover">
-                                <span class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-outfit" id="score-number">{data["summary"]["overall_weighted_score"]}</span>
-                                <span class="text-xs text-gray-500 mt-1 font-mono">[-1.0, 1.0]</span>
+                                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-outfit" id="score-number">{data["summary"]["overall_weighted_score"]}</span>
+                                <span class="text-[10px] text-gray-500 mt-0.5 font-mono">[-1.0, 1.0]</span>
                             </div>
                         </div>
-                        <div class="text-center py-3.5 px-4 rounded-xl transition-all duration-500 mb-5 w-full" id="recommendation-box">
-                            <span class="text-xl font-bold font-outfit block mb-1" id="rec-label">Loading...</span>
-                            <span class="text-xs leading-relaxed block" id="rec-details">Loading details...</span>
+                        <div class="text-center py-2.5 px-3 rounded-xl transition-all duration-500 mb-3 w-full" id="recommendation-box">
+                            <span class="text-base font-bold font-outfit block mb-0.5" id="rec-label">Loading...</span>
+                            <span class="text-[11px] leading-snug block" id="rec-details">Loading details...</span>
                         </div>
                     </div>
-                    <div class="border-t border-gray-800/60 pt-4 mb-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h4 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">帖子分类占比</h4>
-                            <span class="text-gray-600 text-xs font-mono">{data["summary"]["total_posts"]} 篇</span>
+                    <div class="border-t border-gray-800/60 pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-gray-500 text-[10px] font-semibold uppercase tracking-wider">帖子分类占比</h4>
+                            <span class="text-gray-600 text-[10px] font-mono">{data["summary"]["total_posts"]} 篇</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-2.5 mb-3">
-                            <div class="bg-emerald-500/8 border border-emerald-500/15 rounded-lg p-2.5 text-center">
-                                <span class="text-2xl font-extrabold text-emerald-400 font-mono">{data["summary"]["bullish_posts"]}</span>
-                                <span class="text-xs text-emerald-400/60 block mt-0.5">看多</span>
+                        <div class="grid grid-cols-3 gap-1.5 mb-2">
+                            <div class="bg-emerald-500/8 border border-emerald-500/15 rounded-lg p-1.5 text-center">
+                                <span class="text-lg font-extrabold text-emerald-400 font-mono">{data["summary"]["bullish_posts"]}</span>
+                                <span class="text-[10px] text-emerald-400/60 block">看多</span>
                             </div>
-                            <div class="bg-gray-800/20 border border-gray-700/20 rounded-lg p-2.5 text-center">
-                                <span class="text-2xl font-extrabold text-gray-300 font-mono">{data["summary"]["neutral_posts"]}</span>
-                                <span class="text-xs text-gray-500 block mt-0.5">中性</span>
+                            <div class="bg-gray-800/20 border border-gray-700/20 rounded-lg p-1.5 text-center">
+                                <span class="text-lg font-extrabold text-gray-300 font-mono">{data["summary"]["neutral_posts"]}</span>
+                                <span class="text-[10px] text-gray-500 block">中性</span>
                             </div>
-                            <div class="bg-red-500/8 border border-red-500/15 rounded-lg p-2.5 text-center">
-                                <span class="text-2xl font-extrabold text-red-400 font-mono">{data["summary"]["bearish_posts"]}</span>
-                                <span class="text-xs text-red-400/60 block mt-0.5">看空</span>
+                            <div class="bg-red-500/8 border border-red-500/15 rounded-lg p-1.5 text-center">
+                                <span class="text-lg font-extrabold text-red-400 font-mono">{data["summary"]["bearish_posts"]}</span>
+                                <span class="text-[10px] text-red-400/60 block">看空</span>
                             </div>
                         </div>
-                        <div class="flex justify-between text-xs text-gray-500 mb-1.5 px-1">
+                        <div class="flex justify-between text-[10px] text-gray-500 mb-1 px-1">
                             <span>看多 ({(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.0f}%)</span>
                             <span>看空 ({(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.0f}%)</span>
                         </div>
-                        <div class="h-2 w-full bg-gray-800/60 rounded-full overflow-hidden flex">
+                        <div class="h-1.5 w-full bg-gray-800/60 rounded-full overflow-hidden flex">
                             <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-l-full" style="width: {(data["summary"]["bullish_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
                             <div class="bg-gray-700/50 h-full" style="width: {(data["summary"]["neutral_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
                             <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: {(data["summary"]["bearish_posts"]/data["summary"]["total_posts"]*100):.1f}%"></div>
                         </div>
                     </div>
-                    <div class="border-t border-gray-800/60 pt-4 text-xs">
-                        <h4 class="text-gray-500 font-semibold uppercase tracking-wider mb-3">模型说明</h4>
-                        <div class="space-y-2.5">
-                            <div class="flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
-                                <span class="text-emerald-400 font-bold mt-0.5 flex-shrink-0">&lt; -0.3</span>
-                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">极度恐慌 / 黄金买点</span><br>逆向建仓 +10%~+20%</span>
-                            </div>
-                            <div class="flex items-start gap-2 bg-gray-800/20 border border-gray-700/20 rounded-lg px-3 py-2">
-                                <span class="text-gray-400 font-bold mt-0.5 flex-shrink-0">-0.3 ~ 0.5</span>
-                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">情绪中性 / 卧倒装死</span><br>维持底仓，持股不动</span>
-                            </div>
-                            <div class="flex items-start gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
-                                <span class="text-red-400 font-bold mt-0.5 flex-shrink-0">&gt; +0.5</span>
-                                <span class="text-gray-300 leading-relaxed"><span class="text-white font-semibold">极度亢奋 / 防御警报</span><br>防守减仓 -10%~-20%</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
-        <!-- Trend Chart Card (日线) -->
-            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-2">
-                <div class="flex items-center justify-between mb-2 gap-2">
-                    <h3 class="text-white text-sm sm:text-base font-bold flex items-center gap-2">
+        <!-- Trend Chart Card (日线) + 模型说明横排 -->
+            <div class="glass-card mobile-card p-3 sm:p-4 rounded-2xl lg:col-span-2 flex flex-col">
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <h3 class="text-white text-sm font-bold flex items-center gap-2">
                         <i class="fa-solid fa-chart-line text-teal-400"></i> 情绪日线趋势
                     </h3>
                     <span class="text-[10px] text-gray-600 font-mono shrink-0">历史日线</span>
                 </div>
-                <p class="text-xs text-gray-600 mb-3 sm:mb-4">按交易日累计，Y轴自适应缩放。</p>
-                
-                <div class="h-[200px] sm:h-[280px] relative w-full">
+                <p class="text-[10px] text-gray-600 mb-2">按交易日累计，Y轴自适应缩放。</p>
+                <div class="h-[160px] sm:h-[200px] relative w-full">
                     <canvas id="trend-chart"></canvas>
                     <p id="trend-chart-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-500">暂无趋势数据</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-gray-800/60">
+                    <h4 class="text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-2">模型说明</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div class="flex items-start gap-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-2.5 py-2">
+                            <span class="text-emerald-400 font-bold shrink-0">&lt; -0.3</span>
+                            <span class="text-gray-300 leading-snug"><span class="text-white font-semibold">极度恐慌 / 黄金买点</span><br>逆向建仓 +10%~+20%</span>
+                        </div>
+                        <div class="flex items-start gap-1.5 bg-gray-800/20 border border-gray-700/20 rounded-lg px-2.5 py-2">
+                            <span class="text-gray-400 font-bold shrink-0">-0.3~0.5</span>
+                            <span class="text-gray-300 leading-snug"><span class="text-white font-semibold">情绪中性 / 卧倒装死</span><br>维持底仓，持股不动</span>
+                        </div>
+                        <div class="flex items-start gap-1.5 bg-red-500/5 border border-red-500/10 rounded-lg px-2.5 py-2">
+                            <span class="text-red-400 font-bold shrink-0">&gt; +0.5</span>
+                            <span class="text-gray-300 leading-snug"><span class="text-white font-semibold">极度亢奋 / 防御警报</span><br>防守减仓 -10%~-20%</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -552,32 +630,32 @@ class DashboardGenerator:
             </div>
 
             <!-- Market Risk Score Card (TuShare 多维数据) — 横版 -->
-            {f'''            <div class="glass-card mobile-card p-4 sm:p-6 rounded-2xl lg:col-span-3" id="risk-card">
-                <h3 class="text-gray-400 text-xs sm:text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2">
+            {f'''            <div class="glass-card mobile-card p-3 sm:p-4 rounded-2xl lg:col-span-3" id="risk-card">
+                <h3 class="text-gray-400 text-xs font-semibold tracking-wider uppercase mb-3 flex items-center gap-2">
                     <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 大盘风险值预估
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                     <!-- Col 1: Big Score + Level + Advice -->
                     <div class="flex flex-col items-center justify-center text-center">
-                        <span class="text-5xl sm:text-6xl font-extrabold font-outfit text-white" id="risk-total">{risk["total_score"]}</span>
-                        <span class="text-gray-500 text-sm">/ 100</span>
-                        <div class="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden my-3">
+                        <span class="text-4xl sm:text-5xl font-extrabold font-outfit text-white" id="risk-total">{risk["total_score"]}</span>
+                        <span class="text-gray-500 text-xs">/ 100</span>
+                        <div class="h-2 w-full bg-gray-800 rounded-full overflow-hidden my-2">
                             <div class="h-full rounded-full transition-all duration-700" id="risk-bar"
                                  style="width:{risk["total_score"]}%;
                                         background:{bar_color};">
                             </div>
                         </div>
-                        <span class="px-3 py-1 rounded-full text-sm font-semibold" id="risk-level"
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold" id="risk-level"
                               style="background:{badge_bg};
                                      color:{badge_fg};">
                             {risk["level"]}
                         </span>
-                        <p class="text-xs text-gray-400 leading-relaxed mt-2">{risk["advice"]}</p>
+                        <p class="text-[11px] text-gray-400 leading-snug mt-1.5">{risk["advice"]}</p>
                         {aftershock_html}
                         {distribution_html}
                     </div>
                     <!-- Col 2: Dual Track + Limit Stats -->
-                    <div class="flex flex-col justify-center space-y-2">
+                    <div class="flex flex-col justify-center space-y-1.5">
                         {risk_dual_track_html}
                         {limit_html}
                         {f'<p class="text-[10px] text-gray-500 text-center">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
@@ -585,12 +663,12 @@ class DashboardGenerator:
                     </div>
                     <!-- Col 3: Concentration + Dimensions -->
                     <div class="flex flex-col justify-center">
-                        <div class="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center mb-3">
+                        <div class="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-500/5 border border-amber-500/20 text-center mb-2">
                             <span class="text-[10px] text-amber-400/70 uppercase tracking-wider">核心指标 · 前5%成交占比</span>
-                            <div class="text-3xl font-extrabold font-mono text-amber-300 mt-1">{conc_display}<span class="text-lg text-amber-400/60">{conc_unit}</span></div>
-                            <span class="text-[10px] text-amber-400/40 mt-0.5 block">前5%成交占比 · 当前评分 {risk["dimensions"]["concentration"]["score"]} 分</span>
+                            <div class="text-2xl font-extrabold font-mono text-amber-300 mt-0.5">{conc_display}<span class="text-base text-amber-400/60">{conc_unit}</span></div>
+                            <span class="text-[10px] {"text-red-400/80" if conc_above_hist else "text-amber-400/40"} mt-0.5 block">{conc_subline}{" · 突破极值" if conc_above_hist else ""}</span>
                         </div>
-                        <div class="space-y-1.5">
+                        <div class="space-y-1">
                             {dims_html}
                         </div>
                     </div>
@@ -747,7 +825,7 @@ class DashboardGenerator:
                 card.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.2)";
                 bgGlow.className = "absolute -right-20 -top-20 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl";
                 
-                recBox.className = "w-full text-center py-4 px-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 bullish-glow";
+                recBox.className = "w-full text-center py-2.5 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 bullish-glow";
                 recLabel.innerHTML = `<i class="fa-solid fa-circle-arrow-up"></i> 极度悲观 / 黄金买点`;
                 recDetails.textContent = "建议逐步逆向建仓，加仓 +10% ~ +20% 优质筹码。";
             }} else if (score >= 0.5) {{
@@ -755,7 +833,7 @@ class DashboardGenerator:
                 card.style.boxShadow = "0 0 20px rgba(239, 68, 68, 0.2)";
                 bgGlow.className = "absolute -right-20 -top-20 w-40 h-40 rounded-full bg-rose-500/10 blur-3xl";
                 
-                recBox.className = "w-full text-center py-4 px-5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-red-400 bearish-glow";
+                recBox.className = "w-full text-center py-2.5 px-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-red-400 bearish-glow";
                 recLabel.innerHTML = `<i class="fa-solid fa-circle-arrow-down"></i> 极度乐观 / 防御警报`;
                 recDetails.textContent = "市场风险极高，注意保护利润，建议防守防御，减仓 -10% ~ -20% 并收缩战线。";
             }} else {{
@@ -763,7 +841,7 @@ class DashboardGenerator:
                 card.style.boxShadow = "0 0 20px rgba(99, 102, 241, 0.15)";
                 bgGlow.className = "absolute -right-20 -top-20 w-40 h-40 rounded-full bg-indigo-500/10 blur-3xl";
                 
-                recBox.className = "w-full text-center py-4 px-5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300";
+                recBox.className = "w-full text-center py-2.5 px-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300";
                 recLabel.innerHTML = `<i class="fa-solid fa-circle-pause"></i> 情绪中性 / 卧倒装死`;
                 recDetails.textContent = "市场为情绪波动噪音，维持当前核心底仓策略不变，持股不动。";
             }}
