@@ -72,6 +72,21 @@ class DashboardGenerator:
         else:
             bar_color, badge_bg, badge_fg = "#6ee7b7", "#6ee7b733", "#a7f3d0"
 
+        aftershock_html = ""
+        if risk and risk.get("aftershock"):
+            aft_detail = ""
+            for s in risk.get("signals", []):
+                if s.get("id") == "aftershock":
+                    aft_detail = s.get("detail", "")
+                    break
+            aftershock_html = f"""
+                <div class="mt-1 mb-2 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                    <div class="text-[11px] text-yellow-300 font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-bolt"></i> 余震警戒 · 死猫跳防护
+                    </div>
+                    <p class="text-[10px] text-gray-400 leading-snug mt-0.5">{aft_detail}，反弹未修复，谨防再杀</p>
+                </div>"""
+
         distribution_html = ""
         dist_patterns = (risk or {}).get("distribution_patterns", [])
         if dist_patterns:
@@ -474,6 +489,7 @@ class DashboardGenerator:
                     </span>
                 </div>
                 <p class="text-xs text-gray-400 text-center leading-relaxed mb-1">{risk["advice"]}</p>
+                {aftershock_html}
                 {distribution_html}
                 {risk_dual_track_html}
                 {f'<p class="text-[10px] text-gray-500 text-center mb-1">基础 {risk.get("base_score", risk["total_score"])} + 变动 {risk.get("momentum_bonus", 0)} + 累积 {risk.get("accumulation_bonus", 0)}' + (f' | 硬触发底线 {risk.get("floor_score")}' if risk.get("floor_score") else '') + '</p>' if risk.get("momentum_bonus") or risk.get("accumulation_bonus") or risk.get("floor_score") else ''}
@@ -510,11 +526,11 @@ class DashboardGenerator:
                                 <span class="font-mono text-rose-400 shrink-0">+{s["points"]}</span>
                             </div>
                             <p class="text-[10px] text-gray-600 leading-snug mb-1">{s["detail"]}</p>
-                    ''' for s in risk.get("signals", [])
+                    ''' for s in risk.get("signals", []) if s.get("id") != "aftershock"
                         ) + '''                        </div>
                     </div>
                     '''
-                    ) if risk.get("signals") else ""
+                    ) if [s for s in risk.get("signals", []) if s.get("id") != "aftershock"] else ""
                     ) + (
                     "".join(
                         f'''                    <div class="mt-2 pt-2 border-t border-red-900/40">

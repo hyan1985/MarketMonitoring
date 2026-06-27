@@ -284,7 +284,13 @@ def main():
             )
         if risk_data.get("floor_score"):
             print(f"  - 硬触发底线: {risk_data['floor_score']}")
+        if risk_data.get("aftershock"):
+            for sig in risk_data.get("signals", []):
+                if sig.get("id") == "aftershock":
+                    print(f"  - {Colors.WARNING}⚡ 余震警戒: {sig['detail']}{Colors.ENDC}")
         for sig in risk_data.get("signals", []):
+            if sig.get("id") == "aftershock":
+                continue
             print(f"    ⚡ {sig['label']} +{sig['points']} | {sig['detail']}")
         for trig in risk_data.get("hard_triggers", []):
             print(f"    🚨 {trig['label']} → 底线 {trig['floor']} | {trig['detail']}")

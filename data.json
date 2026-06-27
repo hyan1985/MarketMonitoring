@@ -117878,6 +117878,7 @@
     "structure_score": 35.3,
     "breakdown_score": 42.0,
     "bull_trend": true,
+    "aftershock": false,
     "distribution_leading": false,
     "distribution_patterns": [],
     "base_score": 71.4,

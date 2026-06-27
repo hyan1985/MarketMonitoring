@@ -415,6 +415,72 @@ def _covert_breakdown(trade_date_str):
     return pts, detail
 
 
+_LEVEL_ORDER = {"安全": 0, "中性": 1, "预警": 2, "紧急": 3, "极端": 4}
+
+
+def _level_rank_text(level_text):
+    for k, v in _LEVEL_ORDER.items():
+        if k in level_text:
+            return v
+    return 0
+
+
+def _recent_stress(trade_date_str, lookback=3):
+    """
+    近 lookback 个交易日（不含当日）是否出现破位级压力日。
+    grade: 2=极端级(上证≤-3% 或 跌幅≥5%个股≥15%)，1=紧急级(≤-2% 或 ≥10%)，0=无。
+    """
+    days = _trade_dates_upto(trade_date_str, lookback + 1)
+    if len(days) < 2:
+        return 0, None
+    prior = [d for d in days if d < trade_date_str][-lookback:]
+    grade = 0
+    worst = None
+    for d in prior:
+        idx = _index_pct_chg(d)
+        s = _get_daily_stats(d)
+        sev = s.get("severe_ratio") if s else None
+        g = 0
+        if (idx is not None and idx <= -3) or (sev is not None and sev >= 0.15):
+            g = 2
+        elif (idx is not None and idx <= -2) or (sev is not None and sev >= 0.10):
+            g = 1
+        if g > grade:
+            grade, worst = g, (d, idx, sev)
+    if grade == 0:
+        return 0, None
+    d, idx, sev = worst
+    return grade, (
+        f"近{lookback}日内 {d[4:6]}/{d[6:]} 已破位"
+        f"（上证{(idx or 0):+.2f}%、跌幅≥5%个股{(sev or 0)*100:.1f}%）"
+    )
+
+
+def _in_drawdown(trade_date_str, window=10, thresh=-1.0):
+    """指数仍处回撤中（距近 window 日高点 ≤ thresh%）= 尚未收复失地。"""
+    bars = _index_bars_upto(trade_date_str, window)
+    if bars is None or bars.empty:
+        return False
+    high = float(bars["close"].max())
+    cur = float(bars["close"].iloc[-1])
+    if high <= 0:
+        return False
+    return (cur / high - 1) * 100 <= thresh
+
+
+def _aftershock_memory(trade_date_str):
+    """
+    余震记忆：近期刚破位且仍在回撤时，反弹日不把等级清零。
+    返回 (floor_rank, detail)：floor_rank 2=预警 / 1=中性 / 0=不生效。
+    """
+    grade, detail = _recent_stress(trade_date_str, lookback=3)
+    if grade == 0:
+        return 0, None
+    if not _in_drawdown(trade_date_str, window=10, thresh=-1.0):
+        return 0, None
+    return (2 if grade == 2 else 1), detail
+
+
 def _cap_signal_bonus(signals, cap):
     total = sum(s["points"] for s in signals)
     if total <= cap:
@@ -1474,6 +1540,21 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         labels = "、".join(p["label"] for p in alert_patterns)
         advice = f"顶部派发信号（{labels}），建议分批减仓、严守止盈、勿追高"
 
+    # 余震记忆：近期刚破位且仍在回撤时，反弹日不把等级清零（防死猫跳盲区）
+    after_rank, after_detail = _aftershock_memory(trade_date_str)
+    aftershock = False
+    if after_rank > 0 and after_rank > _level_rank_text(level):
+        aftershock = True
+        if after_rank >= 2:
+            level = "🟡 预警"
+            advice = "余震警戒：近期已破位且仍在回撤，反弹谨防再杀，控制仓位"
+        else:
+            level = "🟢 中性"
+            advice = "余震观察：近期出现破位、回撤未修复，保持谨慎"
+        all_signals = all_signals + [
+            {"id": "aftershock", "label": "余震警戒", "points": 0, "detail": after_detail}
+        ]
+
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
     print(
         f"    结构拥挤 {structure_score} + 破位风险 {breakdown_score}"
@@ -1498,6 +1579,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "structure_score": structure_score,
         "breakdown_score": breakdown_score,
         "bull_trend": bull_trend,
+        "aftershock": aftershock,
         "distribution_leading": distribution_leading,
         "distribution_patterns": dist_patterns,
         "base_score": base_score,
