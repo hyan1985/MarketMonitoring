@@ -386,6 +386,35 @@ def _breakdown_index_boost(trade_date_str):
     return boost
 
 
+def _covert_breakdown(trade_date_str):
+    """
+    隐性破位（领先）：指数靠权重收红/收平，但底下已恐慌扩散 + 参与面崩塌。
+    「指数红、4000家绿」的高位派发，回测中次日高概率下跌（6/25→6/26 -2.26%）。
+    返回 (breakdown_points, detail or None)。
+    """
+    index_pct = _index_pct_chg(trade_date_str)
+    up = _up_ratio(trade_date_str)
+    stats = _get_daily_stats(trade_date_str)
+    severe = stats.get("severe_ratio") if stats else None
+    dist60 = _index_distance_from_high(trade_date_str, 60)
+    if None in (index_pct, up, severe, dist60):
+        return 0.0, None
+    # 高位 + 指数没明显跌 + 跌幅≥5%个股异常多 + 上涨家数崩塌
+    if not (dist60 >= -3 and index_pct >= -0.5 and up < 0.30 and severe >= 0.06):
+        return 0.0, None
+    if severe >= 0.085:
+        pts = 16.0
+    elif severe >= 0.07:
+        pts = 12.0
+    else:
+        pts = 9.0
+    detail = (
+        f"指数{index_pct:+.2f}%收红但跌幅≥5%个股{severe*100:.1f}%、"
+        f"上涨家数仅{up*100:.0f}%（高位隐性破位）"
+    )
+    return pts, detail
+
+
 def _cap_signal_bonus(signals, cap):
     total = sum(s["points"] for s in signals)
     if total <= cap:
@@ -1404,10 +1433,21 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     structure_raw = (
         _structure_from_dimensions(dimensions) + struct_mom + struct_accum
     )
+    covert_pts, covert_detail = _covert_breakdown(trade_date_str)
+    if covert_pts > 0:
+        all_signals = all_signals + [
+            {
+                "id": "covert_breakdown",
+                "label": "隐性破位(领先)",
+                "points": covert_pts,
+                "detail": covert_detail,
+            }
+        ]
     breakdown_raw = (
         _breakdown_from_dimensions(dimensions)
         + break_mom
         + _breakdown_index_boost(trade_date_str)
+        + covert_pts
     )
 
     structure_score = round(min(max(structure_raw, structure_floor), 50), 1)
