@@ -117874,19 +117874,19 @@
     }
   ],
   "risk": {
-    "total_score": 74.8,
-    "structure_score": 32.8,
+    "total_score": 77.3,
+    "structure_score": 35.3,
     "breakdown_score": 42.0,
     "bull_trend": true,
     "distribution_leading": false,
     "distribution_patterns": [],
-    "base_score": 76.4,
+    "base_score": 71.4,
     "momentum_bonus": 4.0,
     "accumulation_bonus": 9.0,
     "floor_score": 0.0,
     "structure_floor": 0.0,
     "breakdown_floor": 0.0,
-    "snapshot_score": 89.4,
+    "snapshot_score": 84.4,
     "signals": [
       {
         "id": "tech_rising_3d",
@@ -117923,10 +117923,10 @@
         }
       },
       "margin": {
-        "score": 10,
-        "value": null,
+        "score": 5,
+        "value": 1.16,
         "label": "融资余额占比",
-        "detail": "融资数据暂无（取中位分）",
+        "detail": "融资余额/总市值 = 1.16%",
         "thresholds": {
           "warning": 2.5,
           "danger": 3.0
