@@ -157,12 +157,12 @@
         <div class="glass-card mobile-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300 w-full md:w-auto shrink-0">
             <div>
                 <span class="text-gray-400 text-xs block">数据更新时间（北京时间）</span>
-                <span class="font-mono text-teal-400 font-semibold">2026-06-29 22:44:22</span>
+                <span class="font-mono text-teal-400 font-semibold">2026-06-30 02:30:50</span>
             </div>
             <div class="border-l border-gray-800 h-8"></div>
             <div>
                 <span class="text-gray-400 text-xs block">样本帖子数量</span>
-                <span class="font-mono text-indigo-400 font-semibold">6133 篇</span>
+                <span class="font-mono text-indigo-400 font-semibold">6177 篇</span>
             </div>
         </div>
     </header>
@@ -180,7 +180,7 @@
                         <div class="gauge-container mb-3">
                             <div class="gauge-body"></div>
                             <div class="gauge-cover">
-                                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-outfit" id="score-number">0.0678</span>
+                                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-outfit" id="score-number">0.07</span>
                                 <span class="text-[10px] text-gray-500 mt-0.5 font-mono">[-1.0, 1.0]</span>
                             </div>
                         </div>
@@ -192,15 +192,15 @@
                     <div class="border-t border-gray-800/60 pt-3">
                         <div class="flex justify-between items-center mb-2">
                             <h4 class="text-gray-500 text-[10px] font-semibold uppercase tracking-wider">帖子分类占比</h4>
-                            <span class="text-gray-600 text-[10px] font-mono">6133 篇</span>
+                            <span class="text-gray-600 text-[10px] font-mono">6177 篇</span>
                         </div>
                         <div class="grid grid-cols-3 gap-1.5 mb-2">
                             <div class="bg-emerald-500/8 border border-emerald-500/15 rounded-lg p-1.5 text-center">
-                                <span class="text-lg font-extrabold text-emerald-400 font-mono">503</span>
+                                <span class="text-lg font-extrabold text-emerald-400 font-mono">509</span>
                                 <span class="text-[10px] text-emerald-400/60 block">看多</span>
                             </div>
                             <div class="bg-gray-800/20 border border-gray-700/20 rounded-lg p-1.5 text-center">
-                                <span class="text-lg font-extrabold text-gray-300 font-mono">5022</span>
+                                <span class="text-lg font-extrabold text-gray-300 font-mono">5060</span>
                                 <span class="text-[10px] text-gray-500 block">中性</span>
                             </div>
                             <div class="bg-red-500/8 border border-red-500/15 rounded-lg p-1.5 text-center">
@@ -215,7 +215,7 @@
                         <div class="h-1.5 w-full bg-gray-800/60 rounded-full overflow-hidden flex">
                             <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-l-full" style="width: 8.2%"></div>
                             <div class="bg-gray-700/50 h-full" style="width: 81.9%"></div>
-                            <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: 9.8%"></div>
+                            <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: 9.7%"></div>
                         </div>
                     </div>
                 </div>
@@ -559,7 +559,7 @@
         let rawPosts = [];
         
         // Setup Score Gauge Animation
-        const score = 0.0678;
+        const score = 0.07;
 
         async function loadPosts() {
             const tbody = document.getElementById("posts-table-body");
@@ -641,12 +641,12 @@
             hourly: {
                 labels: ["6/29 01:00", "6/29 02:00", "6/29 03:00", "6/29 04:00", "6/29 05:00", "6/29 06:00", "6/29 07:00", "6/29 08:00", "6/29 09:00", "6/29 10:00", "6/29 11:00", "6/29 12:00"],
                 tooltips: ["2026-06-29 01:00", "2026-06-29 02:00", "2026-06-29 03:00", "2026-06-29 04:00", "2026-06-29 05:00", "2026-06-29 06:00", "2026-06-29 07:00", "2026-06-29 08:00", "2026-06-29 09:00", "2026-06-29 10:00", "2026-06-29 11:00", "2026-06-29 12:00"],
-                scores: [-0.042, 0.0861, 0.1437, -0.0008, -0.0041, -0.0029, 0.0192, 0.1891, 0.1153, 0.0084, 0.0764, -0.0981]
+                scores: [-0.0408, 0.0844, 0.1526, -0.001, 0.0188, -0.0012, 0.013, 0.1625, 0.1457, 0.0306, 0.068, -0.0984]
             },
             daily: {
                 labels: ["6\u670819\u65e5", "6\u670820\u65e5", "6\u670821\u65e5", "6\u670822\u65e5", "6\u670823\u65e5", "6\u670824\u65e5", "6\u670825\u65e5", "6\u670826\u65e5", "6\u670827\u65e5", "6\u670828\u65e5", "6\u670829\u65e5"],
                 tooltips: ["2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29"],
-                scores: [0.0782, 0.0228, 0.0093, 0.318, -0.0711, 0.2021, -0.0641, -0.0261, 0.0191, -0.1258, 0.0678]
+                scores: [0.0782, 0.0228, 0.0093, 0.318, -0.0711, 0.2021, -0.0641, -0.0261, 0.0191, -0.1258, 0.07]
             }
         };
 
@@ -753,7 +753,7 @@
                 data: {
                     labels: ["\u725b\u5e02", "\u53cd\u5f39", "\u5927\u6da8", "\u5229\u597d", "\u6284\u5e95", "\u62c9\u5347", "\u6da8\u505c", "\u6ee1\u4ed3", "\u51b2", "\u52a0\u4ed3", "\u4e70\u5165", "\u53cd\u8f6c", "\u8d77\u98de", "\u8865\u4ed3", "\u7a81\u7834"],
                     datasets: [{
-                        data: [120, 105, 67, 48, 46, 43, 35, 25, 24, 24, 23, 19, 17, 11, 9],
+                        data: [121, 107, 68, 48, 46, 43, 36, 25, 24, 24, 23, 20, 18, 11, 9],
                         backgroundColor: 'rgba(16, 185, 129, 0.75)',
                         borderColor: '#10b981',
                         borderWidth: 1,
@@ -775,9 +775,9 @@
             new Chart(bearCtx, {
                 type: 'bar',
                 data: {
-                    labels: ["\u5927\u8dcc", "\u51fa\u8d27", "\u718a\u5e02", "\u8dcc\u505c", "\u6e05\u4ed3", "\u66b4\u8dcc", "\u9500\u6237", "\u8df3\u6c34", "\u9000\u5e02", "\u5272\u8089", "\u8bf1\u591a", "\u8170\u65a9", "\u4e0d\u73a9\u4e86", "\u8001\u4e61\u522b\u8d70", "\u5356\u51fa"],
+                    labels: ["\u5927\u8dcc", "\u51fa\u8d27", "\u718a\u5e02", "\u8dcc\u505c", "\u6e05\u4ed3", "\u66b4\u8dcc", "\u9500\u6237", "\u8df3\u6c34", "\u9000\u5e02", "\u5272\u8089", "\u8bf1\u591a", "\u8170\u65a9", "\u4e0d\u73a9\u4e86", "\u5356\u51fa", "\u8001\u4e61\u522b\u8d70"],
                     datasets: [{
-                        data: [107, 69, 61, 55, 52, 49, 46, 35, 31, 30, 29, 27, 19, 14, 13],
+                        data: [107, 69, 61, 55, 51, 49, 46, 35, 31, 30, 29, 27, 19, 15, 14],
                         backgroundColor: 'rgba(239, 68, 68, 0.75)',
                         borderColor: '#ef4444',
                         borderWidth: 1,
