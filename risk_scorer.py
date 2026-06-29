@@ -1546,7 +1546,7 @@ def _score_sentiment(sentiment_score):
 # -------------------------------------------------------
 # 综合评分 & 风险等级
 # -------------------------------------------------------
-def risk_level(structure_score, breakdown_score, total_score):
+def risk_level(structure_score, breakdown_score, total_score, bull_trend=False):
     """等级由破位分主导，结构分高仅预警。"""
     if breakdown_score >= 35 or (total_score >= 72 and breakdown_score >= 25):
         return "⛔ 极端", "破位风险极高，建议大幅减仓/对冲"
@@ -1554,9 +1554,14 @@ def risk_level(structure_score, breakdown_score, total_score):
         return "🔴 紧急", "市场出现扩散性走弱，建议尽快减仓"
     if structure_score >= 30 or total_score >= 42:
         if breakdown_score < 15 and structure_score >= 30:
+            if bull_trend:
+                return (
+                    "🟡 预警",
+                    "结构拥挤偏高，主升趋势中观察为主，不宜追高",
+                )
             return (
                 "🟡 预警",
-                "结构拥挤偏高，主升趋势中观察为主，不宜追高",
+                "结构拥挤偏高，趋势转弱，收紧仓位、不宜追高",
             )
         return "🟡 预警", "风险升高，逐步收紧仓位、收紧止盈"
     if total_score >= 28:
@@ -1721,7 +1726,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     total_score = _dual_total(structure_score, breakdown_score, bull_trend)
 
     snapshot_score = round(min(base_score + momentum_bonus + accum_bonus, 100), 1)
-    level, advice = risk_level(structure_score, breakdown_score, total_score)
+    level, advice = risk_level(structure_score, breakdown_score, total_score, bull_trend)
     if distribution_leading and breakdown_score < 22:
         # 破位未确认时，用派发专属建议覆盖泛化的结构建议
         if "安全" in level or "中性" in level:
