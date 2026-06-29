@@ -1,19 +1,19 @@
 {
   "summary": {
-    "overall_weighted_score": 0.0659,
-    "total_posts": 6115,
-    "valid_posts": 6105,
+    "overall_weighted_score": 0.0678,
+    "total_posts": 6133,
+    "valid_posts": 6123,
     "spam_posts": 10,
-    "bullish_posts": 502,
-    "bearish_posts": 597,
-    "neutral_posts": 5006,
-    "last_updated": "2026-06-29 22:24:43",
+    "bullish_posts": 503,
+    "bearish_posts": 598,
+    "neutral_posts": 5022,
+    "last_updated": "2026-06-29 22:44:22",
     "sources_used": [
       "eastmoney"
     ],
     "scan_date": "2026-06-29",
-    "crawled_posts": 6155,
-    "date_filtered_posts": 40
+    "crawled_posts": 6160,
+    "date_filtered_posts": 27
   },
   "top_bullish_words": [
     {
@@ -42,7 +42,7 @@
     },
     {
       "word": "涨停",
-      "count": 34
+      "count": 35
     },
     {
       "word": "满仓",
@@ -84,7 +84,7 @@
     },
     {
       "word": "出货",
-      "count": 68
+      "count": 69
     },
     {
       "word": "熊市",
@@ -192,8 +192,8 @@
     },
     {
       "date": "2026-06-29",
-      "sentiment_score": 0.0659,
-      "count": 6105
+      "sentiment_score": 0.0678,
+      "count": 6123
     }
   ],
   "hourly_trends": [
@@ -804,12 +804,12 @@
     },
     {
       "time": "2026-06-29 02:00",
-      "sentiment_score": 0.0848,
+      "sentiment_score": 0.0861,
       "count": 771
     },
     {
       "time": "2026-06-29 03:00",
-      "sentiment_score": 0.1401,
+      "sentiment_score": 0.1437,
       "count": 293
     },
     {
@@ -819,42 +819,42 @@
     },
     {
       "time": "2026-06-29 05:00",
-      "sentiment_score": -0.0241,
+      "sentiment_score": -0.0041,
       "count": 74
     },
     {
       "time": "2026-06-29 06:00",
-      "sentiment_score": -0.0033,
+      "sentiment_score": -0.0029,
       "count": 104
     },
     {
       "time": "2026-06-29 07:00",
-      "sentiment_score": 0.0178,
+      "sentiment_score": 0.0192,
       "count": 79
     },
     {
       "time": "2026-06-29 08:00",
-      "sentiment_score": 0.1924,
+      "sentiment_score": 0.1891,
       "count": 195
     },
     {
       "time": "2026-06-29 09:00",
-      "sentiment_score": 0.1032,
+      "sentiment_score": 0.1153,
       "count": 1121
     },
     {
       "time": "2026-06-29 10:00",
-      "sentiment_score": 0.0091,
-      "count": 1721
+      "sentiment_score": 0.0084,
+      "count": 1739
     },
     {
       "time": "2026-06-29 11:00",
-      "sentiment_score": 0.0767,
+      "sentiment_score": 0.0764,
       "count": 660
     },
     {
       "time": "2026-06-29 12:00",
-      "sentiment_score": -0.0974,
+      "sentiment_score": -0.0981,
       "count": 196
     }
   ],
@@ -909,7 +909,7 @@
     ],
     "hard_triggers": [],
     "level": "🟡 预警",
-    "advice": "结构拥挤偏高，主升趋势中观察为主，不宜追高",
+    "advice": "结构拥挤偏高，趋势转弱，收紧仓位、不宜追高",
     "trade_date": "2026-06-29",
     "dimensions": {
       "concentration": {
@@ -960,9 +960,9 @@
       },
       "sentiment": {
         "score": 10.7,
-        "value": 0.0659,
+        "value": 0.0678,
         "label": "论坛情绪",
-        "detail": "情绪分 +0.0659",
+        "detail": "情绪分 +0.0678",
         "thresholds": {
           "warning": 0.3,
           "danger": 0.5
