@@ -182,7 +182,7 @@ class DashboardGenerator:
         risk_dual_track_html = ""
         if risk and risk.get("structure_score") is not None:
             bull_line = (
-                '<p class="text-[10px] text-teal-500/80 text-center mb-1">主升趋势 · 总分熔断生效</p>'
+                f'<p class="text-[10px] text-teal-500/80 text-center mb-1">主升趋势 · 总分熔断 · {risk.get("bull_trend_detail", "")}</p>'
                 if risk.get("bull_trend")
                 else ""
             )

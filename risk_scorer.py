@@ -14,7 +14,7 @@
 双轨合成（0–100）：
 - 结构拥挤分（0–50）：资金/行业/杠杆/情绪亢奋 + 结构类信号 → 主升期常偏高，偏「观察」
 - 破位风险分（0–50）：恐慌扩散 + 宽度骤降/隐性走弱 → 真正减仓信号
-多头趋势（MA5>MA10>MA20）下总分熔断：破位 <20 时总分上限 55，避免结构性牛市天天 70–90。
+多头趋势（均线多头 + 价守 MA10 + 未大跌）下总分熔断：破位 <20 时总分上限 55，避免结构性牛市天天 70–90。
 """
 
 import os
@@ -461,16 +461,61 @@ _STRUCTURE_TRIGGER_IDS = {
 _BREAKDOWN_TRIGGER_IDS = {"leverage_blowoff"}
 
 
-def _is_bull_trend(trade_date_str):
-    """上证 MA5 > MA10 > MA20 视为多头趋势。"""
-    bars = _index_bars_upto(trade_date_str, 30)
-    if bars is None or len(bars) < 20:
-        return False
+def _bull_trend_state(trade_date_str):
+    """
+    主升趋势：均线多头且价格仍守在关键均线之上，未出现死叉/贴线/大跌破坏。
+
+    否决项（任一成立则不算主升）：
+    - MA5 ≤ MA10（死叉或贴死）
+    - MA5 与 MA10 间距 < 0.25%（濒临死叉）
+    - 收盘 < MA10（短线趋势破坏）
+    - 收盘 < MA20（中期支撑失守）
+    - MA5 较 3 日前拐头向下
+    - 当日指数跌幅 ≤ -1%（大跌日均线滞后，不应标主升）
+
+    必要条件：MA5 > MA10 > MA20
+    """
+    bars = _index_bars_upto(trade_date_str, 35)
+    if bars is None or len(bars) < 23:
+        return False, "均线数据不足"
     closes = bars["close"].astype(float).tolist()
+    close = closes[-1]
     ma5 = sum(closes[-5:]) / 5
     ma10 = sum(closes[-10:]) / 10
     ma20 = sum(closes[-20:]) / 20
-    return ma5 > ma10 > ma20
+    ma5_3d = sum(closes[-8:-3]) / 5
+
+    if not (ma5 > ma10 > ma20):
+        if ma5 <= ma10:
+            return False, "MA5已死叉MA10"
+        if ma10 <= ma20:
+            return False, "MA10未高于MA20"
+        return False, "均线非多头排列"
+
+    gap_5_10 = (ma5 - ma10) / ma10 if ma10 else 0
+    if gap_5_10 < 0.0025:
+        return False, f"MA5贴线MA10({gap_5_10*100:.2f}%)"
+
+    if close < ma10:
+        return False, f"收盘跌破MA10({close:.0f}<{ma10:.0f})"
+
+    if close < ma20:
+        return False, f"收盘跌破MA20({close:.0f}<{ma20:.0f})"
+
+    if ma5 < ma5_3d * 0.999:
+        return False, "MA5拐头向下"
+
+    index_pct = _index_pct_chg(trade_date_str)
+    if index_pct is not None and index_pct <= -1.0:
+        return False, f"当日大跌{index_pct:.1f}%"
+
+    return True, f"均线多头·收盘守MA10({gap_5_10*100:.2f}%缓冲)"
+
+
+def _is_bull_trend(trade_date_str):
+    """是否处于可熔断假警报的主升趋势。"""
+    ok, _ = _bull_trend_state(trade_date_str)
+    return ok
 
 
 def _split_signals(signals, trade_date_str=None):
@@ -1618,7 +1663,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     signals, momentum_bonus = _score_momentum_signals(trade_date_str, s3)
     accum_signals, accum_bonus = _score_accumulation_risk(trade_date_str)
     all_signals = signals + accum_signals
-    bull_trend = _is_bull_trend(trade_date_str)
+    bull_trend, bull_trend_detail = _bull_trend_state(trade_date_str)
     hard_triggers, floor_score, structure_floor, breakdown_floor = _evaluate_hard_triggers(
         trade_date_str, dimensions, sentiment_score, bull_trend=bull_trend
     )
@@ -1702,7 +1747,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
     print(f"  [RiskScorer] 综合风险分: {total_score} — {level}")
     print(
         f"    结构拥挤 {structure_score} + 破位风险 {breakdown_score}"
-        + (" | 多头趋势熔断" if bull_trend else "")
+        + (f" | 主升趋势熔断({bull_trend_detail})" if bull_trend else "")
     )
     print(
         f"    (旧口径参考: 基础 {base_score} + 变动 {momentum_bonus} + 累积 {accum_bonus}"
@@ -1723,6 +1768,7 @@ def compute_risk_score(trade_date_str=None, sentiment_score=None):
         "structure_score": structure_score,
         "breakdown_score": breakdown_score,
         "bull_trend": bull_trend,
+        "bull_trend_detail": bull_trend_detail,
         "aftershock": aftershock,
         "limit_stats": _get_limit_stats(trade_date_str),
         "distribution_leading": distribution_leading,

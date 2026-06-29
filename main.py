@@ -266,7 +266,7 @@ def main():
         print(
             f"  - 双轨: 结构拥挤 {risk_data.get('structure_score')} "
             f"+ 破位风险 {risk_data.get('breakdown_score')}"
-            + (" (主升趋势熔断)" if risk_data.get("bull_trend") else "")
+            + (f" (主升趋势熔断: {risk_data.get('bull_trend_detail')})" if risk_data.get("bull_trend") else "")
         )
         print(f"  - 风险等级: {risk_data['level']}")
         for p in risk_data.get("distribution_patterns", []):
