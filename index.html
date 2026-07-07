@@ -157,12 +157,12 @@
         <div class="glass-card mobile-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300 w-full md:w-auto shrink-0">
             <div>
                 <span class="text-gray-400 text-xs block">数据更新时间（北京时间）</span>
-                <span class="font-mono text-teal-400 font-semibold">2026-07-07 21:12:28</span>
+                <span class="font-mono text-teal-400 font-semibold">2026-07-08 02:29:31</span>
             </div>
             <div class="border-l border-gray-800 h-8"></div>
             <div>
                 <span class="text-gray-400 text-xs block">样本帖子数量</span>
-                <span class="font-mono text-indigo-400 font-semibold">1439 篇</span>
+                <span class="font-mono text-indigo-400 font-semibold">6334 篇</span>
             </div>
         </div>
     </header>
@@ -180,7 +180,7 @@
                         <div class="gauge-container mb-3">
                             <div class="gauge-body"></div>
                             <div class="gauge-cover">
-                                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-outfit" id="score-number">-0.0324</span>
+                                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-outfit" id="score-number">-0.0281</span>
                                 <span class="text-[10px] text-gray-500 mt-0.5 font-mono">[-1.0, 1.0]</span>
                             </div>
                         </div>
@@ -192,30 +192,30 @@
                     <div class="border-t border-gray-800/60 pt-3">
                         <div class="flex justify-between items-center mb-2">
                             <h4 class="text-gray-500 text-[10px] font-semibold uppercase tracking-wider">帖子分类占比</h4>
-                            <span class="text-gray-600 text-[10px] font-mono">1439 篇</span>
+                            <span class="text-gray-600 text-[10px] font-mono">6334 篇</span>
                         </div>
                         <div class="grid grid-cols-3 gap-1.5 mb-2">
                             <div class="bg-emerald-500/8 border border-emerald-500/15 rounded-lg p-1.5 text-center">
-                                <span class="text-lg font-extrabold text-emerald-400 font-mono">106</span>
+                                <span class="text-lg font-extrabold text-emerald-400 font-mono">451</span>
                                 <span class="text-[10px] text-emerald-400/60 block">看多</span>
                             </div>
                             <div class="bg-gray-800/20 border border-gray-700/20 rounded-lg p-1.5 text-center">
-                                <span class="text-lg font-extrabold text-gray-300 font-mono">1166</span>
+                                <span class="text-lg font-extrabold text-gray-300 font-mono">5239</span>
                                 <span class="text-[10px] text-gray-500 block">中性</span>
                             </div>
                             <div class="bg-red-500/8 border border-red-500/15 rounded-lg p-1.5 text-center">
-                                <span class="text-lg font-extrabold text-red-400 font-mono">165</span>
+                                <span class="text-lg font-extrabold text-red-400 font-mono">637</span>
                                 <span class="text-[10px] text-red-400/60 block">看空</span>
                             </div>
                         </div>
                         <div class="flex justify-between text-[10px] text-gray-500 mb-1 px-1">
                             <span>看多 (7%)</span>
-                            <span>看空 (11%)</span>
+                            <span>看空 (10%)</span>
                         </div>
                         <div class="h-1.5 w-full bg-gray-800/60 rounded-full overflow-hidden flex">
-                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-l-full" style="width: 7.4%"></div>
-                            <div class="bg-gray-700/50 h-full" style="width: 81.0%"></div>
-                            <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: 11.5%"></div>
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-l-full" style="width: 7.1%"></div>
+                            <div class="bg-gray-700/50 h-full" style="width: 82.7%"></div>
+                            <div class="bg-gradient-to-r from-rose-500 to-red-500 h-full rounded-r-full" style="width: 10.1%"></div>
                         </div>
                     </div>
                 </div>
@@ -559,7 +559,7 @@
         let rawPosts = [];
         
         // Setup Score Gauge Animation
-        const score = -0.0324;
+        const score = -0.0281;
 
         async function loadPosts() {
             const tbody = document.getElementById("posts-table-body");
@@ -639,14 +639,14 @@
         
         const chartData = {
             hourly: {
-                labels: ["7/7 03:00", "7/7 04:00", "7/7 05:00", "7/7 06:00", "7/7 07:00", "7/7 08:00", "7/7 09:00"],
-                tooltips: ["2026-07-07 03:00", "2026-07-07 04:00", "2026-07-07 05:00", "2026-07-07 06:00", "2026-07-07 07:00", "2026-07-07 08:00", "2026-07-07 09:00"],
-                scores: [-0.0357, 0.0292, -0.0797, -0.0777, 0.0457, -0.0618, -0.0877]
+                labels: ["7/7 01:00", "7/7 02:00", "7/7 03:00", "7/7 04:00", "7/7 05:00", "7/7 06:00", "7/7 07:00", "7/7 08:00", "7/7 09:00", "7/7 10:00", "7/7 11:00"],
+                tooltips: ["2026-07-07 01:00", "2026-07-07 02:00", "2026-07-07 03:00", "2026-07-07 04:00", "2026-07-07 05:00", "2026-07-07 06:00", "2026-07-07 07:00", "2026-07-07 08:00", "2026-07-07 09:00", "2026-07-07 10:00", "2026-07-07 11:00"],
+                scores: [0.0034, -0.0061, -0.0406, 0.0143, -0.0529, -0.0858, 0.0734, -0.0451, -0.1279, -0.0608, -0.1079]
             },
             daily: {
                 labels: ["6\u670824\u65e5", "6\u670825\u65e5", "6\u670826\u65e5", "6\u670827\u65e5", "6\u670828\u65e5", "6\u670829\u65e5", "6\u670830\u65e5", "7\u67081\u65e5", "7\u67082\u65e5", "7\u67083\u65e5", "7\u67084\u65e5", "7\u67085\u65e5", "7\u67086\u65e5", "7\u67087\u65e5"],
                 tooltips: ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05", "2026-07-06", "2026-07-07"],
-                scores: [0.2021, -0.0641, -0.0261, 0.0191, -0.1258, 0.07, 0.0074, 0.1124, 0.0288, -0.0328, 0.125, 0.0647, 0.0563, -0.0324]
+                scores: [0.2021, -0.0641, -0.0261, 0.0191, -0.1258, 0.07, 0.0074, 0.1124, 0.0288, -0.0328, 0.125, 0.0647, 0.0563, -0.0281]
             }
         };
 
@@ -751,9 +751,9 @@
             new Chart(bullCtx, {
                 type: 'bar',
                 data: {
-                    labels: ["\u725b\u5e02", "\u53cd\u5f39", "\u5927\u6da8", "\u6284\u5e95", "\u6da8\u505c", "\u5229\u597d", "\u4f01\u7a33", "\u52a0\u4ed3", "\u51b2", "\u4e0d-\u5272\u8089", "\u4e70\u5165", "\u7a81\u7834", "\u53cd\u8f6c", "\u62c9\u5347", "\u591a\u5934"],
+                    labels: ["\u53cd\u5f39", "\u725b\u5e02", "\u6284\u5e95", "\u62c9\u5347", "\u5927\u6da8", "\u6da8\u505c", "\u5229\u597d", "\u4e70\u5165", "\u51b2", "\u7ea2\u76d8", "\u52a0\u4ed3", "\u4f01\u7a33", "\u6ee1\u4ed3", "\u7a81\u7834", "\u89c1\u5e95"],
                     datasets: [{
-                        data: [33, 30, 10, 10, 7, 6, 6, 5, 3, 2, 2, 2, 2, 2, 1],
+                        data: [129, 114, 64, 38, 37, 33, 28, 17, 15, 13, 12, 10, 9, 8, 7],
                         backgroundColor: 'rgba(16, 185, 129, 0.75)',
                         borderColor: '#10b981',
                         borderWidth: 1,
@@ -775,9 +775,9 @@
             new Chart(bearCtx, {
                 type: 'bar',
                 data: {
-                    labels: ["\u66b4\u8dcc", "\u5927\u8dcc", "\u718a\u5e02", "\u6e05\u4ed3", "\u9500\u6237", "\u4e0d\u73a9\u4e86", "\u8dcc\u505c", "\u8170\u65a9", "\u51fa\u8d27", "\u5356\u51fa", "\u7834\u4f4d", "\u5173\u706f\u5403\u9762", "\u7edd\u671b", "\u7a7a\u5934", "\u5272\u8089"],
+                    labels: ["\u5927\u8dcc", "\u66b4\u8dcc", "\u718a\u5e02", "\u6e05\u4ed3", "\u9500\u6237", "\u8dcc\u505c", "\u51fa\u8d27", "\u5272\u8089", "\u8170\u65a9", "\u7834\u4f4d", "\u4e0d\u73a9\u4e86", "\u5783\u573e", "\u8001\u4e61\u522b\u8d70", "\u8dd1\u8def", "\u5b8c\u86cb"],
                     datasets: [{
-                        data: [28, 24, 19, 18, 18, 9, 8, 7, 7, 6, 6, 6, 5, 5, 5],
+                        data: [107, 92, 86, 82, 58, 47, 25, 24, 23, 21, 21, 19, 16, 15, 14],
                         backgroundColor: 'rgba(239, 68, 68, 0.75)',
                         borderColor: '#ef4444',
                         borderWidth: 1,
