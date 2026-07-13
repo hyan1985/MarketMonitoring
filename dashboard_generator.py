@@ -309,6 +309,14 @@ class DashboardGenerator:
         
         # Prepare charts data
         scan_date = (data.get("summary") or {}).get("scan_date", "")
+        last_updated = (data.get("summary") or {}).get("last_updated", "")
+        updated_day = last_updated[:10] if last_updated else ""
+        scan_date_note = ""
+        if scan_date and updated_day and scan_date != updated_day:
+            scan_date_note = (
+                f' <span class="text-[10px] text-gray-600">'
+                f'（分析 {scan_date} 的数据，{updated_day} 凌晨跑完）</span>'
+            )
         hourly_all = data.get("hourly_trends", [])
         # Hourly: only today's buckets (avoid merging many days under duplicate "14:00" labels)
         if scan_date:
@@ -504,13 +512,13 @@ class DashboardGenerator:
             <p class="text-gray-400 text-xs sm:text-sm mt-2 sm:mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 <span>数据源：{sources_text}</span>
                 <span class="hidden sm:inline text-gray-500">|</span>
-                <span class="text-gray-500">统计日 {data["summary"].get("scan_date", data["summary"]["last_updated"][:10])}（北京时间）</span>
+                <span class="text-gray-500">分析日 {data["summary"].get("scan_date", data["summary"]["last_updated"][:10])}（帖子/情绪）{scan_date_note}</span>
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
             </p>
         </div>
         <div class="glass-card mobile-card px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-4 text-sm text-gray-300 w-full md:w-auto shrink-0">
             <div>
-                <span class="text-gray-400 text-xs block">数据更新时间（北京时间）</span>
+                <span class="text-gray-400 text-xs block">任务完成时间（北京时间）</span>
                 <span class="font-mono text-teal-400 font-semibold">{data["summary"]["last_updated"]}</span>
             </div>
             <div class="border-l border-gray-800 h-8"></div>
@@ -1096,11 +1104,25 @@ class DashboardGenerator:
                                 break;
                             }}
                         }}
+
+                        // 反讽 / 阴阳怪气
+                        const sarcasmPrefix = text.substring(Math.max(0, start - 14), start);
+                        const sarcasmSuffix = text.substring(end, end + 8);
+                        const sarcasmPrefixCues = ['所谓','你们说的','你以为的','什么破','什么','哪来的','哪有','吹的','假','呵呵','真会','真棒','厉害','好一个'];
+                        const sarcasmSuffixCues = ['呢','啊这是','个屁','你个头','罢了','是吧'];
+                        const badOutcomes = ['半山腰','地板','地心','腰斩','跌停','创新低','割肉','血洗','姥姥家','跌麻','亏麻'];
+                        const sentenceMarkers = ['呵呵','个屁','你个头','真会玩','牛到姥姥家','飞到地心','香到割肉','抄到半山腰','干到腰斩','又创新低'];
+                        let hasSarcasm = kw.type === 'bullish' && (
+                            sarcasmPrefixCues.some(c => sarcasmPrefix.includes(c)) ||
+                            sarcasmSuffixCues.some(c => sarcasmSuffix.includes(c)) ||
+                            sentenceMarkers.some(c => text.includes(c)) ||
+                            (badOutcomes.some(c => text.includes(c)) && ['牛市','抄底','起飞','满仓','主升浪','反弹','长线'].some(b => text.includes(b)))
+                        );
                         
-                        if (hasNegation) {{
+                        if (hasNegation || hasSarcasm) {{
                             // Reversing context
                             if (kw.type === 'bullish') {{
-                                matchedBearish.push(`不-${{kw.word}}`);
+                                matchedBearish.push(hasSarcasm && !hasNegation ? `讽-${{kw.word}}` : `不-${{kw.word}}`);
                             }} else {{
                                 matchedBullish.push(`不-${{kw.word}}`);
                             }}

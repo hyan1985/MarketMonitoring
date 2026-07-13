@@ -127,6 +127,90 @@ class SentimentAnalyzer:
             if re.search(pattern, text):
                 matched_bearish.append(tag)
 
+    # 反讽前置线索（出现在多头词前面）
+    _SARCASM_PREFIX_CUES = (
+        "所谓的", "所谓", "你们说的", "你以为的", "什么破", "什么",
+        "哪来的", "哪有", "吹的", "假的", "假", "呵呵", "你们吹的",
+        "又是你们", "好一个", "真会", "真棒", "厉害",
+    )
+    # 反讽后置线索（出现在多头词后面）
+    _SARCASM_SUFFIX_CUES = (
+        "呢", "啊这是", "个屁", "你个头", "罢了", "？呵呵", "?呵呵",
+        "是吧", "吗", "哦",
+    )
+    # 阴阳对比：多头词附近出现惨淡结果
+    _SARCASM_BAD_OUTCOMES = (
+        "半山腰", "地板", "地心", "腰斩", "跌停", "创新低", "割肉",
+        "血洗", "深套", "爆仓", "跌麻", "亏麻", "一天跌", "又跌",
+        "跌三个", "跌停潮", "姥姥家", "地心里",
+    )
+    # 整句阴阳标记：出现则把句内多头词整体翻空
+    _SARCASM_SENTENCE_MARKERS = (
+        "呵呵", "个屁", "你个头", "真会玩", "牛到姥姥家", "飞到地心",
+        "香到割肉", "快乐你们不懂", "氛围拉满", "又创新低", "抄到半山腰",
+        "买在半山腰", "干到腰斩",
+    )
+
+    def _has_sarcasm_cue(self, text, keyword):
+        """True when keyword sits in sarcasm prefix/suffix context."""
+        if not text or not keyword:
+            return False
+        start = 0
+        while True:
+            pos = text.find(keyword, start)
+            if pos < 0:
+                break
+            prefix = text[max(0, pos - 14) : pos]
+            suffix = text[pos + len(keyword) : pos + len(keyword) + 8]
+            if any(cue in prefix for cue in self._SARCASM_PREFIX_CUES):
+                return True
+            if any(cue in suffix for cue in self._SARCASM_SUFFIX_CUES):
+                # 「牛市吗/牛市呢/起飞了是吧」偏反问/阴阳；避免「牛市来了」被误伤
+                if any(cue in suffix for cue in ("呢", "啊这是", "个屁", "你个头", "罢了", "？呵呵", "?呵呵", "是吧")):
+                    return True
+                # 「吗」单独太宽，需再配问号或嘲讽词
+                if "吗" in suffix and ("？" in text or "?" in text or "呵呵" in text or "又是" in prefix):
+                    return True
+            start = pos + 1
+        return False
+
+    def _has_contrast_irony(self, text):
+        """多头用语 + 惨淡结果同句，典型阴阳对比。"""
+        if not text:
+            return False
+        bull_hits = [w for w in self.bullish_words if w in text]
+        bull_hits += [p for p in self.bullish_phrases if p in text]
+        # 慢牛/长线/价值投资 常被阴阳，但不在 bullish_words 里
+        soft_bull = ("慢牛", "长线", "价值投资", "黄金买点", "牛市氛围")
+        bull_hits += [w for w in soft_bull if w in text]
+        if not bull_hits:
+            return False
+        if any(bad in text for bad in self._SARCASM_BAD_OUTCOMES):
+            return True
+        # 「真是太牛了/厉害厉害」+ 下跌语境
+        if re.search(r"(?:真是|真的|太)?(?:太)?(?:牛了|厉害|真棒|可以的)", text) and re.search(
+            r"(?:跌|创新低|腰斩|跌停|割肉|亏)", text
+        ):
+            return True
+        return False
+
+    def _sentence_sarcasm(self, text):
+        """整句阴阳标记。"""
+        if not text:
+            return False
+        if any(m in text for m in self._SARCASM_SENTENCE_MARKERS):
+            return True
+        if re.search(r"(?:牛市|慢牛|起飞|抄底|主升浪?).{0,4}[？?].{0,6}(?:屁|呵呵|呢)", text):
+            return True
+        if re.search(r"(?:抄|涨|飞).{0,2}你个头", text):
+            return True
+        # 「又是主升浪，天天主升浪」复读阴阳
+        if re.search(r"又是.{0,6}(?:主升浪?|抄底|牛市|起飞|满仓).{0,12}天天", text):
+            return True
+        if re.search(r"天天.{0,4}(?:主升浪?|抄底|牛市|起飞)", text) and "又是" in text:
+            return True
+        return False
+
     def analyze_single_text(self, text):
         """Analyze a single piece of text and return sentiment score and matched words with negation flipping"""
         if not text:
@@ -135,6 +219,8 @@ class SentimentAnalyzer:
         matched_bullish = []
         matched_bearish = []
         self._match_phrases_and_regex(text, matched_bullish, matched_bearish)
+
+        sentence_sarcasm = self._sentence_sarcasm(text) or self._has_contrast_irony(text)
 
         # Segment text for lexicon tokens
         words = jieba.lcut(text)
@@ -152,11 +238,16 @@ class SentimentAnalyzer:
                         if prev_w in self.negation_words:
                             has_negation = True
                             break
+
+                # 反讽/阴阳：多头词翻空
+                has_sarcasm = is_bullish and (
+                    self._has_sarcasm_cue(text, word) or sentence_sarcasm
+                )
                 
-                if has_negation:
-                    # Flip the sentiment!
+                if has_negation or has_sarcasm:
                     if is_bullish:
-                        matched_bearish.append(f"不-{word}")
+                        tag = f"讽-{word}" if has_sarcasm and not has_negation else f"不-{word}"
+                        matched_bearish.append(tag)
                     else:
                         matched_bullish.append(f"不-{word}")
                 else:
@@ -164,6 +255,21 @@ class SentimentAnalyzer:
                         matched_bullish.append(word)
                     else:
                         matched_bearish.append(word)
+
+        # 对比阴阳命中但词库未命中多头词时，补一条空头标记，避免漏判
+        if sentence_sarcasm and not matched_bearish and not matched_bullish:
+            matched_bearish.append("阴阳语气")
+        elif sentence_sarcasm and matched_bullish:
+            # 把残留多头短语也翻空（短语匹配阶段未翻转）
+            flipped = []
+            keep_bull = []
+            for w in matched_bullish:
+                if w in self.bullish_phrases or w in self.bullish_words:
+                    flipped.append(f"讽-{w}")
+                else:
+                    keep_bull.append(w)
+            matched_bullish = keep_bull
+            matched_bearish.extend(flipped)
         
         pos = len(matched_bullish)
         neg = len(matched_bearish)

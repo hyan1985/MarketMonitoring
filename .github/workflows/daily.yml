@@ -10,7 +10,7 @@ on:
       target_day:
         description: 分析哪一天（北京时间）
         required: true
-        default: today
+        default: yesterday
         type: choice
         options:
           - today

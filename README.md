@@ -146,7 +146,7 @@ git push -u origin main
 
 **Actions → Daily Sentiment Analysis → Run workflow**
 
-可选 `target_day`：`today`（默认）或 `yesterday`。
+可选 `target_day`：`yesterday`（默认，与定时任务一致）或 `today`。
 
 ---
 
