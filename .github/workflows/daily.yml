@@ -2,9 +2,9 @@ name: Daily Sentiment Analysis
 
 on:
   schedule:
-    # 北京时间交易日 00:30（0 点后）= UTC 16:30（周日~周四，对应北京周一~周五）
+    # 北京时间每天 00:30（0 点后）= UTC 16:30，抓取前一自然日全天帖子
     # 抓取前一自然日全天帖子，TuShare 取该日或之前最近已入库交易日行情
-    - cron: "30 16 * * 0-4"
+    - cron: "30 16 * * *"
   workflow_dispatch:
     inputs:
       target_day:
