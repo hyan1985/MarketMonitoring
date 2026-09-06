@@ -1,27 +1,27 @@
 {
   "summary": {
-    "overall_weighted_score": 0.069,
-    "total_posts": 143,
-    "valid_posts": 143,
-    "spam_posts": 0,
-    "bullish_posts": 21,
-    "bearish_posts": 13,
-    "neutral_posts": 109,
-    "last_updated": "2026-09-06 02:27:33",
+    "overall_weighted_score": 0.2638,
+    "total_posts": 218,
+    "valid_posts": 217,
+    "spam_posts": 1,
+    "bullish_posts": 28,
+    "bearish_posts": 12,
+    "neutral_posts": 177,
+    "last_updated": "2026-09-07 02:26:29",
     "sources_used": [
       "eastmoney"
     ],
-    "scan_date": "2026-09-05",
-    "crawled_posts": 160,
-    "date_filtered_posts": 17
+    "scan_date": "2026-09-06",
+    "crawled_posts": 240,
+    "date_filtered_posts": 22
   },
   "top_bullish_words": [
     {
       "word": "利好",
-      "count": 6
+      "count": 13
     },
     {
-      "word": "突破",
+      "word": "满仓",
       "count": 4
     },
     {
@@ -29,45 +29,53 @@
       "count": 4
     },
     {
-      "word": "涨停",
+      "word": "大利好",
       "count": 3
     },
     {
-      "word": "抄底",
+      "word": "反弹",
       "count": 2
     },
     {
-      "word": "翻倍",
+      "word": "涨停",
       "count": 2
     },
     {
-      "word": "加仓",
+      "word": "起飞",
+      "count": 2
+    },
+    {
+      "word": "大涨",
+      "count": 2
+    },
+    {
+      "word": "不-跑路",
+      "count": 1
+    },
+    {
+      "word": "金叉",
+      "count": 1
+    },
+    {
+      "word": "买入",
+      "count": 1
+    },
+    {
+      "word": "拉升",
       "count": 1
     },
     {
       "word": "反转",
       "count": 1
-    },
-    {
-      "word": "看多",
-      "count": 1
-    },
-    {
-      "word": "起飞",
-      "count": 1
-    },
-    {
-      "word": "大涨",
-      "count": 1
     }
   ],
   "top_bearish_words": [
     {
-      "word": "清仓",
-      "count": 2
+      "word": "跌停",
+      "count": 4
     },
     {
-      "word": "暴跌",
+      "word": "大跌",
       "count": 2
     },
     {
@@ -75,23 +83,23 @@
       "count": 2
     },
     {
+      "word": "暴跌",
+      "count": 2
+    },
+    {
+      "word": "讽-涨停",
+      "count": 2
+    },
+    {
       "word": "利空",
+      "count": 2
+    },
+    {
+      "word": "退市",
       "count": 1
     },
     {
-      "word": "弃市",
-      "count": 1
-    },
-    {
-      "word": "大跌",
-      "count": 1
-    },
-    {
-      "word": "阴阳语气",
-      "count": 1
-    },
-    {
-      "word": "腰斩",
+      "word": "讽-利好",
       "count": 1
     },
     {
@@ -99,23 +107,23 @@
       "count": 1
     },
     {
-      "word": "看空",
+      "word": "卖出",
       "count": 1
     },
     {
-      "word": "跳水",
+      "word": "腰斩",
       "count": 1
     },
     {
-      "word": "讽-大涨",
+      "word": "清仓",
       "count": 1
     },
     {
-      "word": "讽-金叉",
+      "word": "血亏",
       "count": 1
     },
     {
-      "word": "血本无归",
+      "word": "出逃",
       "count": 1
     }
   ],
@@ -509,39 +517,14 @@
       "date": "2026-09-05",
       "sentiment_score": 0.069,
       "count": 143
+    },
+    {
+      "date": "2026-09-06",
+      "sentiment_score": 0.2638,
+      "count": 217
     }
   ],
   "hourly_trends": [
-    {
-      "time": "2026-07-04 06:00",
-      "sentiment_score": 0.3451,
-      "count": 30
-    },
-    {
-      "time": "2026-07-04 07:00",
-      "sentiment_score": 0.3202,
-      "count": 33
-    },
-    {
-      "time": "2026-07-04 08:00",
-      "sentiment_score": 0.1912,
-      "count": 40
-    },
-    {
-      "time": "2026-07-04 09:00",
-      "sentiment_score": 0.1078,
-      "count": 44
-    },
-    {
-      "time": "2026-07-04 10:00",
-      "sentiment_score": 0.0013,
-      "count": 45
-    },
-    {
-      "time": "2026-07-04 11:00",
-      "sentiment_score": 0.0249,
-      "count": 34
-    },
     {
       "time": "2026-07-04 12:00",
       "sentiment_score": 0.5672,
@@ -4111,11 +4094,41 @@
       "time": "2026-09-05 11:00",
       "sentiment_score": 0.0817,
       "count": 15
+    },
+    {
+      "time": "2026-09-06 06:00",
+      "sentiment_score": -0.0108,
+      "count": 35
+    },
+    {
+      "time": "2026-09-06 07:00",
+      "sentiment_score": 0.2134,
+      "count": 40
+    },
+    {
+      "time": "2026-09-06 08:00",
+      "sentiment_score": 0.0012,
+      "count": 38
+    },
+    {
+      "time": "2026-09-06 09:00",
+      "sentiment_score": 0.7868,
+      "count": 42
+    },
+    {
+      "time": "2026-09-06 10:00",
+      "sentiment_score": 0.3425,
+      "count": 41
+    },
+    {
+      "time": "2026-09-06 11:00",
+      "sentiment_score": 0.1151,
+      "count": 21
     }
   ],
   "risk": {
-    "total_score": 20.7,
-    "structure_score": 8.2,
+    "total_score": 21.7,
+    "structure_score": 9.2,
     "breakdown_score": 12.5,
     "bull_trend": false,
     "bull_trend_detail": "MA10未高于MA20",
@@ -4129,13 +4142,13 @@
     },
     "distribution_leading": false,
     "distribution_patterns": [],
-    "base_score": 28.0,
+    "base_score": 29.9,
     "momentum_bonus": 0,
     "accumulation_bonus": 0.0,
     "floor_score": 0.0,
     "structure_floor": 0.0,
     "breakdown_floor": 0.0,
-    "snapshot_score": 28.0,
+    "snapshot_score": 29.9,
     "signals": [
       {
         "id": "limit_breakdown",
@@ -4196,10 +4209,10 @@
         }
       },
       "sentiment": {
-        "score": 10.7,
-        "value": 0.069,
+        "score": 12.6,
+        "value": 0.2638,
         "label": "论坛情绪",
-        "detail": "情绪分 +0.0690",
+        "detail": "情绪分 +0.2638",
         "thresholds": {
           "warning": 0.3,
           "danger": 0.5
