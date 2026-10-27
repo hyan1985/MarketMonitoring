@@ -1,109 +1,101 @@
 {
   "summary": {
-    "overall_weighted_score": -0.0438,
-    "total_posts": 3704,
-    "valid_posts": 3699,
-    "spam_posts": 5,
-    "bullish_posts": 343,
-    "bearish_posts": 373,
-    "neutral_posts": 2983,
-    "last_updated": "2026-10-27 05:07:45",
+    "overall_weighted_score": -0.0453,
+    "total_posts": 2919,
+    "valid_posts": 2918,
+    "spam_posts": 1,
+    "bullish_posts": 203,
+    "bearish_posts": 317,
+    "neutral_posts": 2398,
+    "last_updated": "2026-10-28 04:50:05",
     "sources_used": [
       "eastmoney"
     ],
-    "scan_date": "2026-10-26",
-    "crawled_posts": 3760,
-    "date_filtered_posts": 56
+    "scan_date": "2026-10-27",
+    "crawled_posts": 3120,
+    "date_filtered_posts": 201
   },
   "top_bullish_words": [
     {
       "word": "反弹",
-      "count": 94
-    },
-    {
-      "word": "抄底",
-      "count": 50
-    },
-    {
-      "word": "买入",
-      "count": 36
-    },
-    {
-      "word": "拉升",
-      "count": 32
-    },
-    {
-      "word": "牛市",
-      "count": 26
+      "count": 58
     },
     {
       "word": "大涨",
-      "count": 24
+      "count": 34
     },
     {
-      "word": "红盘",
-      "count": 22
+      "word": "牛市",
+      "count": 33
+    },
+    {
+      "word": "抄底",
+      "count": 23
     },
     {
       "word": "涨停",
-      "count": 20
-    },
-    {
-      "word": "冲",
-      "count": 17
-    },
-    {
-      "word": "反转",
-      "count": 15
-    },
-    {
-      "word": "加仓",
-      "count": 14
-    },
-    {
-      "word": "起飞",
-      "count": 11
-    },
-    {
-      "word": "见底",
-      "count": 10
+      "count": 12
     },
     {
       "word": "利好",
+      "count": 12
+    },
+    {
+      "word": "加仓",
       "count": 9
     },
     {
-      "word": "满仓",
+      "word": "冲",
       "count": 9
+    },
+    {
+      "word": "买入",
+      "count": 9
+    },
+    {
+      "word": "反转",
+      "count": 8
+    },
+    {
+      "word": "满仓",
+      "count": 8
+    },
+    {
+      "word": "不-割肉",
+      "count": 6
+    },
+    {
+      "word": "企稳",
+      "count": 6
+    },
+    {
+      "word": "拉升",
+      "count": 6
+    },
+    {
+      "word": "补仓",
+      "count": 5
     }
   ],
   "top_bearish_words": [
     {
       "word": "大跌",
-      "count": 49
-    },
-    {
-      "word": "出货",
-      "count": 32
+      "count": 76
     },
     {
       "word": "清仓",
-      "count": 32
+      "count": 34
     },
     {
-      "word": "暴跌",
+      "word": "熊市",
       "count": 29
     },
     {
       "word": "老乡别走",
-      "count": 28
+      "count": 22
     },
     {
-      "word": "跳水",
-      "count": 27
-    },
-    {
-      "word": "诱多",
+      "word": "暴跌",
       "count": 21
     },
     {
@@ -112,31 +104,39 @@
     },
     {
       "word": "割肉",
-      "count": 19
+      "count": 17
     },
     {
-      "word": "卖出",
-      "count": 18
-    },
-    {
-      "word": "腰斩",
-      "count": 16
-    },
-    {
-      "word": "跌停",
-      "count": 16
-    },
-    {
-      "word": "熊市",
+      "word": "不玩了",
       "count": 13
     },
     {
-      "word": "被套",
-      "count": 12
+      "word": "跳水",
+      "count": 11
     },
     {
-      "word": "空头",
+      "word": "杀跌",
       "count": 11
+    },
+    {
+      "word": "利空",
+      "count": 10
+    },
+    {
+      "word": "腰斩",
+      "count": 10
+    },
+    {
+      "word": "阴跌",
+      "count": 10
+    },
+    {
+      "word": "出货",
+      "count": 10
+    },
+    {
+      "word": "跑路",
+      "count": 8
     }
   ],
   "daily_trends": [
@@ -784,54 +784,14 @@
       "date": "2026-10-26",
       "sentiment_score": -0.0438,
       "count": 3699
+    },
+    {
+      "date": "2026-10-27",
+      "sentiment_score": -0.0453,
+      "count": 2918
     }
   ],
   "hourly_trends": [
-    {
-      "time": "2026-08-25 01:00",
-      "sentiment_score": -0.0122,
-      "count": 625
-    },
-    {
-      "time": "2026-08-25 02:00",
-      "sentiment_score": 0.1298,
-      "count": 574
-    },
-    {
-      "time": "2026-08-25 03:00",
-      "sentiment_score": 0.1508,
-      "count": 181
-    },
-    {
-      "time": "2026-08-25 04:00",
-      "sentiment_score": 0.1358,
-      "count": 87
-    },
-    {
-      "time": "2026-08-25 05:00",
-      "sentiment_score": 0.0277,
-      "count": 64
-    },
-    {
-      "time": "2026-08-25 06:00",
-      "sentiment_score": -0.0458,
-      "count": 75
-    },
-    {
-      "time": "2026-08-25 07:00",
-      "sentiment_score": -0.0045,
-      "count": 95
-    },
-    {
-      "time": "2026-08-25 08:00",
-      "sentiment_score": -0.1096,
-      "count": 222
-    },
-    {
-      "time": "2026-08-25 09:00",
-      "sentiment_score": 0.1711,
-      "count": 925
-    },
     {
       "time": "2026-08-25 10:00",
       "sentiment_score": -0.0373,
@@ -4386,58 +4346,96 @@
       "time": "2026-10-26 12:00",
       "sentiment_score": -0.2305,
       "count": 116
+    },
+    {
+      "time": "2026-10-27 03:00",
+      "sentiment_score": -0.1289,
+      "count": 1266
+    },
+    {
+      "time": "2026-10-27 04:00",
+      "sentiment_score": -0.0585,
+      "count": 372
+    },
+    {
+      "time": "2026-10-27 05:00",
+      "sentiment_score": -0.1216,
+      "count": 262
+    },
+    {
+      "time": "2026-10-27 06:00",
+      "sentiment_score": 0.0149,
+      "count": 173
+    },
+    {
+      "time": "2026-10-27 07:00",
+      "sentiment_score": -0.054,
+      "count": 199
+    },
+    {
+      "time": "2026-10-27 08:00",
+      "sentiment_score": 0.017,
+      "count": 163
+    },
+    {
+      "time": "2026-10-27 09:00",
+      "sentiment_score": -0.0555,
+      "count": 160
+    },
+    {
+      "time": "2026-10-27 10:00",
+      "sentiment_score": 0.0431,
+      "count": 155
+    },
+    {
+      "time": "2026-10-27 11:00",
+      "sentiment_score": -0.0245,
+      "count": 168
     }
   ],
   "risk": {
-    "total_score": 14.5,
-    "structure_score": 7.2,
-    "breakdown_score": 7.3,
+    "total_score": 43.9,
+    "structure_score": 6.9,
+    "breakdown_score": 37.0,
     "bull_trend": false,
     "bull_trend_detail": "MA5已死叉MA10",
-    "aftershock": true,
+    "aftershock": false,
     "limit_stats": {
-      "up": 55,
-      "bust": 23,
-      "down": 26,
-      "bust_rate": 0.2948717948717949,
-      "down_up": 0.4727272727272727
+      "up": 41,
+      "bust": 28,
+      "down": 22,
+      "bust_rate": 0.4057971014492754,
+      "down_up": 0.5365853658536586
     },
     "distribution_leading": false,
     "distribution_patterns": [],
-    "base_score": 38.4,
+    "base_score": 50.5,
     "momentum_bonus": 0,
     "accumulation_bonus": 0.0,
     "floor_score": 0.0,
     "structure_floor": 0.0,
     "breakdown_floor": 0.0,
-    "snapshot_score": 38.4,
-    "signals": [
-      {
-        "id": "aftershock",
-        "label": "余震警戒",
-        "points": 0,
-        "detail": "近3日内 10/22 已破位（上证-1.48%、跌幅≥5%个股15.4%）"
-      }
-    ],
+    "snapshot_score": 50.5,
+    "signals": [],
     "hard_triggers": [],
-    "level": "🟡 预警",
-    "advice": "余震警戒：近期已破位且仍在回撤，反弹谨防再杀，控制仓位",
-    "trade_date": "2026-10-26",
+    "level": "⛔ 极端",
+    "advice": "破位风险极高，建议大幅减仓/对冲",
+    "trade_date": "2026-10-27",
     "dimensions": {
       "concentration": {
         "score": 0,
-        "value": 43.44,
+        "value": 41.52,
         "label": "资金集中度",
-        "detail": "前5%个股成交额占全市场 43.44%",
+        "detail": "前5%个股成交额占全市场 41.52%",
         "thresholds": {
           "warning": 50,
           "danger": 52
         },
-        "historical_max": 54.22,
-        "historical_max_date": "20260709",
-        "historical_min": 39.52,
-        "historical_median": 44.26,
-        "historical_percentile": 33.3,
+        "historical_max": 53.61,
+        "historical_max_date": "20260626",
+        "historical_min": 40.55,
+        "historical_median": 44.72,
+        "historical_percentile": 7.8,
         "sample_count": 51
       },
       "margin": {
@@ -4451,30 +4449,30 @@
         }
       },
       "industry": {
-        "score": 11.5,
-        "value": 30.17,
+        "score": 11.0,
+        "value": 28.92,
         "label": "行业集中度",
-        "detail": "通信+电子成交占全市场 30.17%",
+        "detail": "通信+电子成交占全市场 28.92%",
         "thresholds": {
           "warning": 30,
           "danger": 40
         }
       },
       "market_stress": {
-        "score": 7.3,
-        "value": 7.36,
+        "score": 20.0,
+        "value": 17.02,
         "label": "恐慌扩散",
-        "detail": "跌幅≥5%个股占比 7.36%",
+        "detail": "跌幅≥5%个股占比 17.02%",
         "thresholds": {
           "warning": 8,
           "danger": 12
         }
       },
       "sentiment": {
-        "score": 9.6,
-        "value": -0.0438,
+        "score": 9.5,
+        "value": -0.0453,
         "label": "论坛情绪",
-        "detail": "情绪分 -0.0438",
+        "detail": "情绪分 -0.0453",
         "thresholds": {
           "warning": 0.3,
           "danger": 0.5
